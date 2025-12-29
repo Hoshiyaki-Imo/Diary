@@ -123,3 +123,35 @@ function getStreakInfo_(dateStr) {
 
   return { streak };
 }
+
+function getMonthlyStats() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+
+  const folderName = "Diary";
+  const rootFolders = DriveApp.getFoldersByName(folderName);
+  if (!rootFolders.hasNext()) {
+    return { count: 0, daysInMonth: 30 };
+  }
+  const root = rootFolders.next();
+
+  const yearFolders = root.getFoldersByName(String(year));
+  if (!yearFolders.hasNext()) {
+    return { count: 0, daysInMonth: new Date(year, month, 0).getDate() };
+  }
+  const yearFolder = yearFolders.next();
+
+  const files = yearFolder.getFiles();
+  let count = 0;
+
+  while (files.hasNext()) {
+    const file = files.next();
+    if (file.getName().startsWith(month + "-")) {
+      count++;
+    }
+  }
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return { count, daysInMonth };
+}
