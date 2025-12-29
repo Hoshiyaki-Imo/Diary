@@ -1,238 +1,116 @@
-/* ===== 設定 ===== */
-const ROOT_FOLDER_NAME = "Diary";
+const ROOT_FOLDER_NAME = "MyDiaryApp";
 
-/* ===== Webアプリ入口 ===== */
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile("index")
-    .setTitle("Diary");
+  return HtmlService.createTemplateFromFile("index")
+    .evaluate()
+    .setTitle("Diary")
+    .addMetaTag("viewport", "width=device-width, initial-scale=1.0");
 }
 
-/* ===== 日記保存（感情・振り返り対応） ===== */
-/* ===== 日記保存（勉強時間対応） ===== */
-/* ===== 日記保存 ===== */
+/* フォルダ操作補助 */
+function getRootFolder_() {
+  const folders = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
+  return folders.hasNext() ? folders.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
+}
+function getSubFolder_(parent, name) {
+  const folders = parent.getFoldersByName(name);
+  return folders.hasNext() ? folders.next() : parent.createFolder(name);
+}
+
+/* 保存機能 (JSON) */
 function saveDiary(dateStr, text, emotion, studyTime) {
   const date = new Date(dateStr);
   const year = date.getFullYear().toString();
   const month = (date.getMonth() + 1).toString().padStart(2, "0");
-  const fileName = `${dateStr}.txt`;
+  const fileName = `${dateStr}.json`;
 
-  const root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
-  const yearFolder = getOrCreateFolder_(root, year);
-  const monthFolder = getOrCreateFolder_(yearFolder, month);
+  const root = getRootFolder_();
+  const yearFolder = getSubFolder_(root, year);
+  const monthFolder = getSubFolder_(yearFolder, month);
 
-  const fullContent = `【感情：${emotion}】【勉強：${studyTime}分】\n${text}`;
+  const data = {
+    date: dateStr,
+    emotion: emotion,
+    studyTime: parseInt(studyTime) || 0,
+    content: text,
+    updatedAt: new Date().toISOString()
+  };
+
   const files = monthFolder.getFilesByName(fileName);
-  let isNewFile = !files.hasNext();
-  if (!isNewFile) {
-    files.next().setContent(fullContent);
+  if (files.hasNext()) {
+    files.next().setContent(JSON.stringify(data, null, 2));
   } else {
-    monthFolder.createFile(fileName, fullContent, MimeType.PLAIN_TEXT);
+    monthFolder.createFile(fileName, JSON.stringify(data, null, 2), MimeType.PLAIN_TEXT);
   }
-
-  const streakInfo = getCurrentStreak_();
-  const stats = getMonthlyStatsForDate_(year, month);
-  if (isNewFile && stats.count === 0) stats.count = 1;
-
-  const prevDate = new Date(date);
-  prevDate.setDate(date.getDate() - 7);
-  const pastDiary = getDiaryContentByDate_(prevDate);
-
-  return { status: isNewFile ? "new" : "overwrite", streak: streakInfo.streak, monthStats: stats, pastDiary: pastDiary };
+  return { status: "ok" };
 }
 
-/* ===== 勉強時間の詳細集計 ===== */
+/* 集計機能 (日別・月別) */
 function getDetailedStudyStats(year, month) {
   const root = getRootFolder_();
-  const yf = getSubFolder_(root, year);
-  const mf = getSubFolder_(yf, month);
+  const yf = getSubFolder_(root, year.toString());
   
-  let currentMonthData = [];
-  if (mf) {
-    const files = mf.getFiles();
-    while (files.hasNext()) {
-      const file = files.next();
-      const match = file.getBlob().getDataAsString().match(/【勉強：(\d+)分】/);
-      if (match) {
-        currentMonthData.push({ day: parseInt(file.getName().slice(-6, -4)), time: parseInt(match[1]) });
+  // 日別データの初期化
+  const lastDay = new Date(year, month, 0).getDate();
+  const dailyData = [];
+  for (let i = 1; i <= lastDay; i++) {
+    dailyData.push({ day: i, time: 0, recorded: false });
+  }
+
+  // 当月の読み込み
+  const mf = getSubFolder_(yf, month.toString().padStart(2, "0"));
+  const files = mf.getFiles();
+  while (files.hasNext()) {
+    const file = files.next();
+    if (file.getName().endsWith(".json")) {
+      const json = JSON.parse(file.getBlob().getDataAsString());
+      const d = parseInt(file.getName().slice(8, 10));
+      if (dailyData[d - 1]) {
+        dailyData[d - 1].time = json.studyTime || 0;
+        dailyData[d - 1].recorded = true;
       }
     }
   }
-  
-  // 先月データの取得（比較用）
-  let prevMonthTime = 0;
-  const prevDate = new Date(year, month - 1, 0);
-  const pmf = getSubFolder_(getSubFolder_(root, prevDate.getFullYear().toString()), (prevDate.getMonth() + 1).toString().padStart(2, "0"));
-  if (pmf) {
-    const pfiles = pmf.getFiles();
-    while (pfiles.hasNext()) {
-      const match = pfiles.next().getBlob().getDataAsString().match(/【勉強：(\d+)分】/);
-      if (match) prevMonthTime += parseInt(match[1]);
+
+  // 年間（月別）の読み込み
+  const monthlyData = [];
+  for (let m = 1; m <= 12; m++) {
+    let mTotal = 0;
+    const mFolder = getSubFolder_(yf, m.toString().padStart(2, "0"));
+    const mFiles = mFolder.getFiles();
+    while (mFiles.hasNext()) {
+      const f = mFiles.next();
+      if (f.getName().endsWith(".json")) {
+        mTotal += JSON.parse(f.getBlob().getDataAsString()).studyTime || 0;
+      }
     }
+    monthlyData.push({ month: m, time: mTotal });
   }
 
-  return {
-    daily: currentMonthData.sort((a, b) => a.day - b.day),
-    total: currentMonthData.reduce((sum, d) => sum + d.time, 0),
-    count: currentMonthData.length,
-    prevMonthTotal: prevMonthTime
-  };
+  return { daily: dailyArr = dailyData, monthly: monthlyData, targetLabel: `${year}年${month}月` };
 }
 
-/* 特定の日付から日記を検索するヘルパー */
-function getDiaryContentByDate_(dateObj) {
-  const y = dateObj.getFullYear().toString();
-  const m = (dateObj.getMonth() + 1).toString().padStart(2, "0");
-  const d = dateObj.toISOString().slice(0, 10);
-  
-  const root = getRootFolder_();
-  if (!root) return null;
-  const yf = getSubFolder_(root, y);
-  if (!yf) return null;
-  const mf = getSubFolder_(yf, m);
-  if (!mf) return null;
-  
-  const files = mf.getFilesByName(`${d}.txt`);
-  if (files.hasNext()) {
-    return { date: d, content: files.next().getBlob().getDataAsString() };
-  }
-  return null;
-}
-
-/* ===== 月別一覧取得 ===== */
+/* リスト取得 */
 function getDiaryList(year, month) {
   const root = getRootFolder_();
-  if (!root) return [];
-  const yearFolder = getSubFolder_(root, year);
-  if (!yearFolder) return [];
-  const monthFolder = getSubFolder_(yearFolder, month);
-  if (!monthFolder) return [];
-
-  const files = monthFolder.getFiles();
-  const result = [];
+  const yf = getSubFolder_(root, year.toString());
+  const mf = getSubFolder_(yf, month.toString().padStart(2, "0"));
+  const files = mf.getFiles();
+  const list = [];
   while (files.hasNext()) {
     const file = files.next();
-    result.push({
-      name: file.getName(),
-      preview: file.getBlob().getDataAsString().substring(0, 40)
-    });
-  }
-  // 日付順
-  result.sort((a, b) => a.name.localeCompare(b.name));
-  return result;
-}
-
-/* ===== 内容取得 ===== */
-function getDiaryContent(year, month, fileName) {
-  const root = getRootFolder_();
-  if (!root) return "";
-  const yearFolder = getSubFolder_(root, year);
-  if (!yearFolder) return "";
-  const monthFolder = getSubFolder_(yearFolder, month);
-  if (!monthFolder) return "";
-  const files = monthFolder.getFilesByName(fileName);
-  return files.hasNext() ? files.next().getBlob().getDataAsString() : "";
-}
-
-/* HTML側から呼び出される統計取得関数 */
-function getMonthlyStats(year, month) {
-  if (!year || !month) {
-    const now = new Date();
-    year = String(now.getFullYear());
-    month = String(now.getMonth() + 1).padStart(2, "0");
-  }
-  return getMonthlyStatsForDate_(year, month);
-}
-
-/* 指定月の統計計算 */
-function getMonthlyStatsForDate_(year, month) {
-  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
-  const root = getRootFolder_();
-  if (!root) return { count: 0, daysInMonth: daysInMonth };
-  
-  const yearFolder = getSubFolder_(root, year);
-  if (!yearFolder) return { count: 0, daysInMonth: daysInMonth };
-  
-  const monthFolder = getSubFolder_(yearFolder, month);
-  if (!monthFolder) return { count: 0, daysInMonth: daysInMonth };
-
-  // フォルダ内のファイルを数える
-  const files = monthFolder.getFiles();
-  let count = 0;
-  while (files.hasNext()) {
-    files.next();
-    count++;
-  }
-
-  return { count: count, daysInMonth: daysInMonth };
-}
-
-
-/* ===== ユーティリティ ===== */
-function getRootFolder_() {
-  const folders = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
-  return folders.hasNext() ? folders.next() : null;
-}
-function getOrCreateFolder_(parent, name) {
-  const folders = parent.getFoldersByName(name);
-  return folders.hasNext() ? folders.next() : parent.createFolder(name);
-}
-function getSubFolder_(parent, name) {
-  const folders = parent.getFoldersByName(name);
-  return folders.hasNext() ? folders.next() : null;
-}
-
-/* ===== 連続記録計算（最新版） ===== */
-function getCurrentStreak_() {
-  const root = getRootFolder_();
-  if (!root) return { streak: 0 };
-
-  // 「今日」または「昨日」を起点にする
-  // これにより、昨日分を今日書いても記録がつながる
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-
-  // 今日書いているかチェック
-  if (checkFileExists_(root, today)) {
-    return calculateStreakFrom_(root, today);
-  } 
-  // 今日書いてないけど、昨日はあるかチェック（継続中扱い）
-  else if (checkFileExists_(root, yesterday)) {
-    return calculateStreakFrom_(root, yesterday);
-  }
-  
-  // どちらもなければ0日
-  return { streak: 0 };
-}
-
-// 指定日から過去へ遡ってカウントする関数
-function calculateStreakFrom_(root, startDate) {
-  let streak = 0;
-  let current = new Date(startDate);
-
-  while (true) {
-    if (checkFileExists_(root, current)) {
-      streak++;
-      current.setDate(current.getDate() - 1);
-    } else {
-      break;
+    if (file.getName().endsWith(".json")) {
+      const json = JSON.parse(file.getBlob().getDataAsString());
+      list.push({ name: file.getName().replace(".json",""), preview: json.content.substring(0, 20), emotion: json.emotion });
     }
   }
-  return { streak };
+  return list.sort((a, b) => b.name.localeCompare(a.name));
 }
 
-// 特定の日付のファイルがあるか確認するヘルパー
-function checkFileExists_(root, dateObj) {
-  const y = dateObj.getFullYear().toString();
-  const m = (dateObj.getMonth() + 1).toString().padStart(2, "0");
-  const d = dateObj.toISOString().slice(0, 10); // YYYY-MM-DD
-
-  const yearFolder = getSubFolder_(root, y);
-  if (!yearFolder) return false;
-
-  const monthFolder = getSubFolder_(yearFolder, m);
-  if (!monthFolder) return false;
-
-  const files = monthFolder.getFilesByName(`${d}.txt`);
-  return files.hasNext();
+function getDiaryContent(year, month, name) {
+  const root = getRootFolder_();
+  const folder = getSubFolder_(getSubFolder_(root, year.toString()), month.toString().padStart(2, "0"));
+  const file = folder.getFilesByName(name + ".json").next();
+  const json = JSON.parse(file.getBlob().getDataAsString());
+  return `【気分】${json.emotion}\n【勉強】${json.studyTime}分\n\n${json.content}`;
 }

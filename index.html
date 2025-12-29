@@ -1,190 +1,145 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Growth Diary</title>
   <style>
-    :root { --primary: #4caf50; --accent: #2196f3; --bg: #f0f2f5; --card: #ffffff; }
-    body { font-family: sans-serif; margin: 0; background: var(--bg); font-size: 18px; color: #333; }
-    .container { max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
+    :root { --primary: #bb86fc; --bg: #f5f5f5; --surface: #ffffff; --on-surface: #333; --border: #eee; }
+    [data-theme="dark"] { --primary: #cfa6ff; --bg: #121212; --surface: #1e1e1e; --on-surface: #e1e1e1; --border: #333; }
     
-    /* タブメニュー */
-    .tab-bar { display: flex; background: #fff; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    .tab { flex: 1; text-align: center; padding: 15px; font-weight: bold; font-size: 0.9rem; color: #888; border-bottom: 3px solid transparent; }
-    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    html { font-size: 16px; } 
+    @media (max-width: 480px) { html { font-size: 17px; } } /* スマホサイズ微調整 */
 
-    .content-section { display: none; padding: 15px; }
+    body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--on-surface); transition: 0.3s; line-height: 1.4; }
+    .container { max-width: 500px; margin: 0 auto; padding-bottom: 40px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--surface); }
+    .tab-bar { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .tab { flex: 1; text-align: center; padding: 12px 5px; cursor: pointer; font-size: 0.85rem; color: #888; font-weight: bold; }
+    .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
+    .card { background: var(--surface); padding: 15px; border-radius: 15px; margin: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    label { display: block; font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; color: var(--primary); }
+    input, select, textarea, button { width: 100%; padding: 10px; font-size: 0.95rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--on-surface); box-sizing: border-box; margin-bottom: 12px; }
+    .btn { background: var(--primary); color: #000; font-weight: bold; border: none; cursor: pointer; }
+    .chart-container { position: relative; height: 160px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-end; margin: 30px 0 20px; overflow: hidden; }
+    .bar { flex: 1; background: var(--primary); margin: 0 1px; position: relative; min-height: 1px; }
+    .bar-label { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 9px; color: #888; }
+    .avg-line { position: absolute; left: 0; right: 0; border-top: 1px dashed #ff4081; z-index: 10; transition: 0.5s; }
+    .avg-label { position: absolute; right: 0; top: -14px; color: #ff4081; font-size: 0.6rem; font-weight: bold; }
+    .content-section { display: none; }
     .content-section.active { display: block; }
-
-    .card { background: var(--card); padding: 20px; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
-    label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.85rem; color: #666; }
-    input, select, textarea { width: 100%; padding: 12px; font-size: 18px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; margin-bottom: 15px; }
-    
-    .btn { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
-    .btn-sub { background: var(--accent); margin-top: 10px; }
-
-    /* 分析パネル */
-    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-    .stat-box { background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center; }
-    .stat-val { font-size: 1.4rem; font-weight: bold; display: block; }
-    .stat-label { font-size: 0.75rem; color: #777; }
-
-    /* グラフ */
-    .chart-frame { height: 150px; display: flex; align-items: flex-end; gap: 3px; border-bottom: 2px solid #eee; margin-bottom: 20px; }
-    .bar { flex: 1; background: var(--primary); border-radius: 3px 3px 0 0; min-width: 5px; }
-
-    /* リスト */
-    .diary-item { border-bottom: 1px solid #eee; padding: 12px 0; cursor: pointer; }
-    .diary-item:last-child { border: none; }
-    .item-date { font-weight: bold; font-size: 0.9rem; }
-    .item-preview { font-size: 0.8rem; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    #feedbackArea { background: #e3f2fd; border-left: 5px solid var(--accent); display: none; }
+    .diary-item { background: var(--surface); padding: 10px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid var(--primary); font-size: 0.9rem; cursor: pointer; }
   </style>
 </head>
-<body>
-
+<body data-theme="dark">
 <div class="container">
+  <div class="header"><h1 style="margin:0; font-size: 1.1rem;">Diary</h1><button onclick="toggleTheme()" style="width:40px; border-radius:50%;">🌓</button></div>
   <div class="tab-bar">
     <div class="tab active" onclick="showTab('edit')">記録</div>
     <div class="tab" onclick="showTab('stats')">分析</div>
-    <div class="tab" onclick="showTab('view')">閲覧</div>
+    <div class="tab" onclick="showTab('view')">履歴</div>
   </div>
-
   <div id="edit" class="content-section active">
     <div class="card">
-      <label>日付</label>
-      <input type="date" id="date">
-      
-      <div style="display: flex; gap: 10px;">
-        <div style="flex:1"><label>気分</label><select id="emotion"><option>普通</option><option>最高</option><option>疲れた</option></select></div>
+      <label>日付</label><input type="date" id="date">
+      <div style="display:flex; gap:8px;">
+        <div style="flex:1"><label>気分</label><select id="emotion"><option>普通</option><option>疲れた</option><option>怒ってる</option><option>悲しい</option><option>もやもや</option></select></div>
         <div style="flex:1"><label>勉強(分)</label><input type="number" id="studyTime" value="0"></div>
       </div>
-
-      <label>日記</label>
-      <textarea id="diary" placeholder="自由に書いてください"></textarea>
-      <button class="btn" onclick="save()">保存する</button>
-
-      <div id="feedbackArea" class="card" style="margin-top:20px;">
-        <div id="streakMsg" style="font-weight:bold;"></div>
-        <div id="mysteryMsg" style="font-size:0.85rem; margin-bottom:10px;"></div>
-        <div id="pastReflect" style="font-size:0.8rem; color:#555; padding-top:10px; border-top:1px dashed #ccc;"></div>
-      </div>
+      <label>内容</label><textarea id="diary" rows="3"></textarea>
+      <button class="btn" onclick="save()" id="saveBtn">保存する</button>
     </div>
   </div>
-
   <div id="stats" class="content-section">
     <div class="card">
-      <h3>学習レポート</h3>
-      <div class="stats-grid">
-        <div class="stat-box"><span class="stat-val" id="totalTime">0</span><span class="stat-label">今月の合計(分)</span></div>
-        <div class="stat-box"><span class="stat-val" id="avgTime">0</span><span class="stat-label">1日平均(分)</span></div>
-        <div class="stat-box"><span class="stat-val" id="compareVal">--</span><span class="stat-label">先月比</span></div>
-        <div class="stat-box"><span class="stat-val" id="monthCount">0</span><span class="stat-label">記録日数</span></div>
+      <div style="display:flex; gap:5px; margin-bottom:10px;">
+        <select id="statYear" onchange="refreshStats()" style="flex:1"></select>
+        <select id="statMonth" onchange="refreshStats()" style="flex:1"></select>
+        <select id="statMode" onchange="refreshStats()" style="flex:1"><option value="daily">日別</option><option value="monthly">月別</option></select>
       </div>
-      <label>日別グラフ</label>
-      <div id="studyChart" class="chart-frame"></div>
+      <div id="chartTitle" style="font-size: 0.8rem; font-weight:bold; text-align:center;"></div>
+      <div class="chart-container" id="chartFrame"><div id="avgLine" class="avg-line"><span class="avg-label" id="avgLabel"></span></div></div>
+      <div id="statsSummary" style="font-size:0.75rem; text-align:center; color:var(--primary);"></div>
     </div>
   </div>
-
   <div id="view" class="content-section">
     <div class="card">
-      <div style="display:flex; gap:5px;">
-        <select id="viewYear" style="flex:2"></select>
-        <select id="viewMonth" style="flex:1"></select>
+      <div style="display:flex; gap:5px; margin-bottom:10px;">
+        <select id="viewYear" onchange="loadList()" style="flex:1"></select>
+        <select id="viewMonth" onchange="loadList()" style="flex:1"></select>
       </div>
-      <button class="btn btn-sub" onclick="loadList()">リストを表示</button>
-      <div id="diaryList" style="margin-top:15px;"></div>
+      <div id="diaryList"></div>
     </div>
-    <div id="viewerCard" class="card" style="display:none;">
-      <div id="viewDate" style="font-weight:bold; margin-bottom:10px;"></div>
-      <div id="viewBody" style="white-space:pre-wrap; font-size:0.95rem;"></div>
+    <div id="viewerCard" class="card" style="display:none; border:1px solid var(--primary);">
+      <div id="viewDate" style="font-weight:bold; color:var(--primary); margin-bottom:10px;"></div>
+      <div id="viewBody" style="white-space:pre-wrap; font-size:0.85rem;"></div>
+      <button class="btn" style="background:#888; margin-top:10px;" onclick="document.getElementById('viewerCard').style.display='none'">閉じる</button>
     </div>
   </div>
 </div>
 
 <script>
+function toggleTheme() { const b = document.body; b.setAttribute("data-theme", b.getAttribute("data-theme") === "dark" ? "light" : "dark"); }
+function showTab(t) {
+  document.querySelectorAll('.tab, .content-section').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${t}"]`).classList.add('active');
+  document.getElementById(t).classList.add('active');
+  if(t === 'stats') refreshStats();
+  if(t === 'view') loadList();
+}
 window.onload = () => {
   const now = new Date();
   document.getElementById("date").valueAsDate = now;
-  const ys = document.getElementById("viewYear");
-  const ms = document.getElementById("viewMonth");
-  for(let y=2024; y<=now.getFullYear(); y++) ys.add(new Option(y+"年", y));
-  for(let m=1; m<=12; m++) ms.add(new Option(m+"月", m.toString().padStart(2,"0")));
-  ys.value = now.getFullYear();
-  ms.value = (now.getMonth()+1).toString().padStart(2,"0");
-  refreshData();
+  const ys = [document.getElementById("statYear"), document.getElementById("viewYear")];
+  const ms = [document.getElementById("statMonth"), document.getElementById("viewMonth")];
+  ys.forEach(s => { for(let y=2024; y<=now.getFullYear(); y++) s.add(new Option(y+"年", y)); s.value = now.getFullYear(); });
+  ms.forEach(s => { for(let m=1; m<=12; m++) s.add(new Option(m+"月", m)); s.value = now.getMonth()+1; });
+  refreshStats();
 };
-
-function showTab(id) {
-  document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  event.currentTarget.classList.add('active');
-  if(id === 'stats') refreshData();
-}
-
 function save() {
-  const btn = event.target;
-  btn.disabled = true;
-  google.script.run.withSuccessHandler(res => {
-    btn.disabled = false;
-    document.getElementById("feedbackArea").style.display = "block";
-    document.getElementById("streakMsg").textContent = res.streak + "日連続！";
-    document.getElementById("mysteryMsg").textContent = "記録は嘘をつきません。";
-    if(res.pastDiary) document.getElementById("pastReflect").innerHTML = "<strong>1週間前:</strong><br>" + res.pastDiary.content.split('\n')[1];
-    alert("保存完了！");
-  }).saveDiary(document.getElementById("date").value, document.getElementById("diary").value, document.getElementById("emotion").value, document.getElementById("studyTime").value);
+  const btn = document.getElementById("saveBtn"); btn.disabled = true; btn.textContent = "保存中...";
+  google.script.run.withSuccessHandler(() => { alert("保存しました！"); btn.disabled = false; btn.textContent = "保存する"; refreshStats(); })
+    .saveDiary(document.getElementById("date").value, document.getElementById("diary").value, document.getElementById("emotion").value, document.getElementById("studyTime").value);
 }
-
-function refreshData() {
-  const d = new Date(document.getElementById("date").value);
+function refreshStats() {
+  const y = document.getElementById("statYear").value, m = document.getElementById("statMonth").value, mode = document.getElementById("statMode").value;
   google.script.run.withSuccessHandler(res => {
-    document.getElementById("totalTime").textContent = res.total;
-    const avg = res.count ? Math.round(res.total / res.count) : 0;
-    document.getElementById("avgTime").textContent = avg;
-    document.getElementById("monthCount").textContent = res.count;
-    
-    // 先月比計算
-    if(res.prevMonthTotal > 0) {
-      const diff = Math.round(((res.total - res.prevMonthTotal) / res.prevMonthTotal) * 100);
-      document.getElementById("compareVal").textContent = (diff > 0 ? "+" : "") + diff + "%";
-      document.getElementById("compareVal").style.color = diff >= 0 ? "green" : "red";
-    }
-
-    // グラフ描画
-    const chart = document.getElementById("studyChart");
-    chart.innerHTML = "";
-    const max = Math.max(...res.daily.map(x => x.time), 60);
-    res.daily.forEach(item => {
-      const bar = document.createElement("div");
-      bar.className = "bar";
-      bar.style.height = (item.time / max * 100) + "%";
-      chart.appendChild(bar);
+    const frame = document.getElementById("chartFrame");
+    const data = mode === 'daily' ? res.daily : res.monthly;
+    frame.querySelectorAll('.bar').forEach(b => b.remove());
+    const max = Math.max(...data.map(d => d.time), 60);
+    const sum = data.reduce((a, b) => a + b.time, 0);
+    const avg = mode === 'daily' ? Math.round(sum / data.filter(d=>d.recorded).length || 0) : Math.round(sum/12);
+    data.forEach(d => {
+      const bar = document.createElement("div"); bar.className = "bar"; bar.style.height = (d.time / max * 100) + "%";
+      if(mode === 'daily' && !d.recorded) bar.style.opacity = "0.1";
+      const lbl = document.createElement("span"); lbl.className = "bar-label";
+      const val = mode === 'daily' ? d.day : d.month;
+      if(mode === 'monthly' || val === 1 || val % 5 === 0) lbl.textContent = mode === 'daily' ? val : val + "月";
+      bar.appendChild(lbl); frame.appendChild(bar);
     });
-  }).getDetailedStudyStats(d.getFullYear().toString(), (d.getMonth()+1).toString().padStart(2,"0"));
+    document.getElementById("avgLine").style.bottom = (avg / max * 100) + "%";
+    document.getElementById("avgLabel").textContent = "平均:" + avg;
+    document.getElementById("chartTitle").textContent = mode === 'daily' ? res.targetLabel : y + "年 月別";
+    document.getElementById("statsSummary").textContent = `合計: ${sum}分 / 平均: ${avg}分`;
+  }).getDetailedStudyStats(y, m);
 }
-
 function loadList() {
+  const y = document.getElementById("viewYear").value, m = document.getElementById("viewMonth").value;
   google.script.run.withSuccessHandler(data => {
     const list = document.getElementById("diaryList");
-    list.innerHTML = data.length ? "" : "なし";
+    list.innerHTML = data.length ? "" : "<div style='text-align:center;padding:20px;'>なし</div>";
     data.forEach(d => {
-      const div = document.createElement("div");
-      div.className = "diary-item";
-      div.innerHTML = `<div class="item-date">${d.name}</div><div class="item-preview">${d.preview}</div>`;
+      const div = document.createElement("div"); div.className = "diary-item";
+      div.innerHTML = `<strong>${d.name} [${d.emotion}]</strong><br>${d.preview}...`;
       div.onclick = () => {
         google.script.run.withSuccessHandler(txt => {
           document.getElementById("viewerCard").style.display = "block";
           document.getElementById("viewDate").textContent = d.name;
           document.getElementById("viewBody").textContent = txt;
-          window.scrollTo(0, document.body.scrollHeight);
-        }).getDiaryContent(document.getElementById("viewYear").value, document.getElementById("viewMonth").value, d.name);
+        }).getDiaryContent(y, m, d.name);
       };
       list.appendChild(div);
     });
-  }).getDiaryList(document.getElementById("viewYear").value, document.getElementById("viewMonth").value);
+  }).getDiaryList(y, m);
 }
 </script>
 </body>
