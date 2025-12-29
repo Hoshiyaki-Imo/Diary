@@ -1,53 +1,108 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>日記</title>
-  </head>
-  <body>
-    <h2>日記</h2>
+<head>
+  <meta charset="utf-8">
+  <title>日記</title>
+</head>
+<body>
+  <h2>日記</h2>
 
-    <textarea id="diary" rows="10" cols="50"></textarea><br><br>
+  <!-- 入力 -->
+  <textarea id="diary" rows="10" cols="50"></textarea><br><br>
+  <button onclick="save()">保存</button>
 
-    <button onclick="save()">保存</button>
-    <button onclick="view()">今月の内容を見る</button>
+  <hr>
 
-    <pre id="viewer" style="margin-top:20px; white-space:pre-wrap;"></pre>
+  <!-- 閲覧 -->
+  <h3>月別閲覧</h3>
+  年 <input type="number" id="viewYear">
+  月
+  <select id="viewMonth">
+    <option value="01">01</option><option value="02">02</option>
+    <option value="03">03</option><option value="04">04</option>
+    <option value="05">05</option><option value="06">06</option>
+    <option value="07">07</option><option value="08">08</option>
+    <option value="09">09</option><option value="10">10</option>
+    <option value="11">11</option><option value="12">12</option>
+  </select>
+  <button onclick="view()">表示</button>
 
-    <script>
-      function save() {
-        const text = document.getElementById("diary").value.trim();
-        if (!text) {
-          alert("何も書いてないで");
-          return;
-        }
+  <pre id="viewer" style="white-space:pre-wrap;"></pre>
 
-        // ★ 上書き確認
-        if (!confirm("今月の日記に追記するけどええ？")) {
-          return;
+  <hr>
+
+  <!-- エクスポート -->
+  <h3>エクスポート</h3>
+  年 <input type="number" id="exportYear">
+  <button onclick="exportDiary()">ZIP出力</button>
+
+<script>
+  /* 初期値 */
+  const now = new Date();
+  document.getElementById("viewYear").value = now.getFullYear();
+  document.getElementById("exportYear").value = now.getFullYear();
+
+  /* 自動保存（下書き） */
+  const textarea = document.getElementById("diary");
+  const DRAFT_KEY = "diary_draft";
+  textarea.value = localStorage.getItem(DRAFT_KEY) || "";
+  textarea.addEventListener("input", () => {
+    localStorage.setItem(DRAFT_KEY, textarea.value);
+  });
+
+  /* 保存 */
+  function save() {
+    const text = textarea.value.trim();
+    if (!text) {
+      alert("内容が空です");
+      return;
+    }
+
+    const y = now.getFullYear();
+    const m = ("0" + (now.getMonth() + 1)).slice(-2);
+
+    google.script.run
+      .withSuccessHandler(function(exists) {
+        if (exists) {
+          if (!confirm("本当に上書きしますか？")) return;
         }
 
         google.script.run
           .withSuccessHandler(function(msg) {
-            alert(msg); // ★ 保存完了アラート
-            document.getElementById("diary").value = "";
-          })
-          .withFailureHandler(function(err) {
-            alert(err.message);
+            alert(msg);
+            textarea.value = "";
+            localStorage.removeItem(DRAFT_KEY);
           })
           .saveDiary(text);
-      }
+      })
+      .diaryExists(y, m);
+  }
 
-      function view() {
-        google.script.run
-          .withSuccessHandler(function(content) {
-            document.getElementById("viewer").innerText = content;
-          })
-          .withFailureHandler(function(err) {
-            alert(err.message);
-          })
-          .loadDiary();
-      }
-    </script>
-  </body>
+  /* 閲覧 */
+  function view() {
+    const y = document.getElementById("viewYear").value;
+    const m = document.getElementById("viewMonth").value;
+
+    google.script.run
+      .withSuccessHandler(function(text) {
+        document.getElementById("viewer").innerText = text;
+      })
+      .loadDiary(y, m);
+  }
+
+  /* エクスポート */
+  function exportDiary() {
+    const y = document.getElementById("exportYear").value;
+
+    google.script.run
+      .withSuccessHandler(function(url) {
+        window.open(url);
+      })
+      .withFailureHandler(function(err) {
+        alert(err.message);
+      })
+      .exportYear(y);
+  }
+</script>
+</body>
 </html>
