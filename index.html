@@ -4,252 +4,396 @@
   <meta charset="UTF-8">
   <title>Diary</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 20px; max-width: 800px; }
-    h1, h2 { margin-bottom: 0.3em; }
-    textarea { width: 100%; height: 200px; font-size: 14px; box-sizing: border-box; }
-    button { margin-top: 10px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
-    select, input[type="date"] { font-size: 14px; padding: 4px; }
-    ul { padding-left: 1em; }
-    li { cursor: pointer; margin-bottom: 6px; }
-    li:hover { text-decoration: underline; color: #0056b3; }
-    .preview { color: #555; font-size: 0.9em; }
-    #viewer { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; margin-top: 10px; min-height: 50px; background: #fafafa; }
-    
-    /* プログレスバーのアニメーション */
-    #monthlyBar { transition: width 0.5s ease-in-out; }
-  </style>
+  /* 全体の基本設定 */
+  :root {
+    --primary-color: #4caf50;
+    --primary-hover: #45a049;
+    --accent-color: #2196f3;
+    --bg-color: #f5f7fa;
+    --card-bg: #ffffff;
+    --text-main: #333333;
+    --text-sub: #666666;
+    --border-color: #e0e4e8;
+  }
+
+  body {
+    font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    display: flex;
+    justify-content: center;
+    line-height: 1.6;
+  }
+
+  /* コンテナ（中央寄せ） */
+  .container {
+    width: 100%;
+    max-width: 600px; /* スマホ・タブレットで最適な幅 */
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: var(--text-main);
+    font-weight: 700;
+  }
+
+  h2 {
+    font-size: 1.2rem;
+    margin: 2rem 0 1rem;
+    border-left: 4px solid var(--accent-color);
+    padding-left: 10px;
+  }
+
+  /* カードデザイン（共通） */
+  .card {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+  }
+
+  /* 入力エリア */
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 15px;
+  }
+
+  .row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  label {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: var(--text-sub);
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  input[type="date"], select, textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 16px; /* iOSの自動ズーム防止 */
+    box-sizing: border-box;
+    background-color: #fff;
+    appearance: none; /* デフォルトスタイル解除 */
+  }
+
+  textarea {
+    min-height: 180px;
+    resize: vertical;
+    line-height: 1.5;
+  }
+
+  /* ボタン */
+  button {
+    width: 100%;
+    padding: 14px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px rgba(76, 175, 80, 0.2);
+  }
+
+  button:active {
+    transform: translateY(2px);
+    box-shadow: none;
+  }
+
+  button:disabled {
+    background: #ccc;
+    box-shadow: none;
+  }
+
+  #loadListBtn {
+    background: var(--accent-color);
+    margin-top: 10px;
+  }
+
+  /* フィードバックエリア */
+  #feedbackArea {
+    background: linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%);
+    border: none;
+    display: none;
+    animation: fadeIn 0.5s ease;
+  }
+
+  #streakMsg {
+    font-size: 1.1rem;
+    color: #2e7d32;
+    margin-bottom: 8px;
+  }
+
+  #mysteryMsg {
+    font-size: 0.95rem;
+    color: #444;
+    line-height: 1.4;
+  }
+
+  /* プログレスバー */
+  .stats-container {
+    margin-top: 10px;
+  }
+
+  .bar-bg {
+    background: #e0e0e0;
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    margin: 8px 0;
+    overflow: hidden;
+  }
+
+  #monthlyBar {
+    background: var(--primary-color);
+    height: 100%;
+    width: 0%;
+    border-radius: 5px;
+    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* リスト表示 */
+  ul {
+    padding: 0;
+    margin: 0;
+  }
+
+  li {
+    background: var(--card-bg);
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    list-style: none;
+    border: 1px solid var(--border-color);
+    transition: transform 0.2s ease;
+  }
+
+  li:active {
+    transform: scale(0.98);
+    background-color: #f9f9f9;
+  }
+
+  .preview {
+    font-size: 0.85rem;
+    color: var(--text-sub);
+    margin-top: 5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  #viewer {
+    background: #fff;
+    min-height: 100px;
+    border-radius: 10px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    margin-top: 15px;
+  }
+
+  /* アニメーション */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* モバイル調整 */
+  @media (max-width: 480px) {
+    body {
+      padding: 15px;
+    }
+    .card {
+      padding: 15px;
+    }
+    .row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
 </head>
 <body>
 
-  <h1>日記</h1>
+  <div class="container">
+    <h1>日記</h1>
 
-  <label>
-    日付：
-    <input type="date" id="date">
-  </label>
+    <div class="card">
+      <div class="input-group">
+        <div>
+          <label>日付</label>
+          <input type="date" id="date">
+        </div>
+        <div>
+          <label>今日の気分</label>
+          <select id="emotion">
+            <option value="普通" selected>普通（通常）</option>
+            <option value="最高">最高！</option>
+            <option value="穏やか">穏やか</option>
+            <option value="疲れた">疲れた</option>
+            <option value="もやもや">もやもや</option>
+            <option value="挑戦">挑戦の一日</option>
+          </select>
+        </div>
+      </div>
 
-  <br><br>
+      <textarea id="diary" placeholder="今日はどんな一日でしたか？"></textarea>
+      <button onclick="save()" id="saveBtn">日記を保存する</button>
 
-  <textarea id="diary" placeholder="ここに日記を書く"></textarea>
+      <div id="feedbackArea" class="card" style="margin-top: 20px;">
+        <div id="streakMsg"></div>
+        <div id="mysteryMsg"></div>
+        <div id="pastReflect"></div>
+      </div>
 
-  <br>
-
-  <button onclick="save()" id="saveBtn">保存</button>
-  
-  <div id="monthlyStats" style="margin-top:16px;">
-    <strong>選択した月の記録状況</strong>
-    <div style="background:#eee; width:100%; height:20px; margin-top:6px; border-radius:4px; overflow:hidden;">
-      <div id="monthlyBar" style="background:#4caf50; height:100%; width:0%;"></div>
+      <div class="stats-container">
+        <label>今月の記録状況</label>
+        <div class="bar-bg">
+          <div id="monthlyBar"></div>
+        </div>
+        <div id="monthlyText" style="font-size: 12px; color: #888; text-align: right;"></div>
+      </div>
     </div>
-    <div id="monthlyText" style="margin-top:4px; font-size:0.9em;"></div>
+
+    <hr>
+
+    <h2>過去を振り返る</h2>
+    <div class="card">
+      <div class="row">
+        <select id="year"></select>
+        <select id="month"></select>
+      </div>
+      <button onclick="loadList()" id="loadListBtn">リストを表示</button>
+      <ul id="list" style="margin-top: 20px;"></ul>
+      <div id="viewer"></div>
+    </div>
   </div>
 
-  <p id="streak" style="font-weight:bold; color:#d32f2f;">連続記録：計算中...</p>
-  <p id="message"></p>
-
-  <h3>実績</h3>
-  <ul id="achievements"></ul>
-
-  <hr>
-
-  <h2>月別閲覧</h2>
-
-  <label>
-    年：
-    <select id="year"></select>
-  </label>
-
-  <label>
-    月：
-    <select id="month"></select>
-  </label>
-
-  <button onclick="loadList()">表示</button>
-
-  <ul id="list"></ul>
-
-  <h3>内容</h3>
-  <div id="viewer">(リストから選択してください)</div>
-
 <script>
-/* ===== 初期化 ===== */
 window.onload = () => {
   const today = new Date();
   document.getElementById("date").valueAsDate = today;
-
   const yearSel = document.getElementById("year");
   const monthSel = document.getElementById("month");
 
-  // 年の選択肢生成
-  for (let y = 2024; y <= today.getFullYear(); y++) {
-    yearSel.add(new Option(y, y));
-  }
-  // 月の選択肢生成
+  for (let y = 2024; y <= today.getFullYear(); y++) yearSel.add(new Option(y, y));
   for (let m = 1; m <= 12; m++) {
     const mStr = m.toString().padStart(2, "0");
     monthSel.add(new Option(mStr, mStr));
   }
-
-  // 初期値設定
   yearSel.value = today.getFullYear();
   monthSel.value = (today.getMonth() + 1).toString().padStart(2, "0");
 
-  // 初期ロード：統計とリスト
-  loadMonthlyStats(); 
-  updateStreakDisplay(0); // 仮表示
-  
-  // 日付が変わったら、その月の統計バーを更新するようにする
-  document.getElementById("date").addEventListener("change", loadMonthlyStatsFromDateInput);
+  loadMonthlyStats();
 };
 
-/* ===== 保存 ===== */
-/* ===== 保存（HTML側） ===== */
 function save() {
-  const dateInput = document.getElementById("date");
-  const textInput = document.getElementById("diary");
-  const dateStr = dateInput.value;
-  const text = textInput.value;
-
-  if (!dateStr || !text.trim()) {
-    alert("日付と内容を入力してください。");
-    return;
-  }
-
+  const dateStr = document.getElementById("date").value;
+  const text = document.getElementById("diary").value;
+  const emotion = document.getElementById("emotion").value;
   const btn = document.getElementById("saveBtn");
+
   btn.disabled = true;
   btn.textContent = "保存中...";
 
   google.script.run
     .withSuccessHandler(res => {
       btn.disabled = false;
-      btn.textContent = "保存";
+      btn.textContent = "保存する";
 
-      // 1. 連続記録の表示を更新
-      updateStreakDisplay(res.streak);
-      updateAchievements(res.streak);
-      
-      // 2. 統計バー（グラフ）の更新
-      if (res.monthStats) {
-        renderProgressBar(res.monthStats.count, res.monthStats.daysInMonth);
-      }
+      const area = document.getElementById("feedbackArea");
+      area.style.display = "block";
+      document.getElementById("streakMsg").textContent = `継続 ${res.streak} 日目`;
+      document.getElementById("mysteryMsg").textContent = getMysteryMessage(res.streak);
 
-      // 3. 完了メッセージ（上書きか新規か教える）
-      if (res.status === "new") {
-        alert("新しく日記を保存しました！");
+      const pastDiv = document.getElementById("pastReflect");
+      if (res.pastDiary) {
+        pastDiv.innerHTML = `<strong>1週間前の自分：</strong><br>${res.pastDiary.content.replace(/\n/g, '<br>')}`;
       } else {
-        alert("日記を更新（上書き）しました。");
+        pastDiv.innerHTML = "<em>1週間前の記録はありません。日記は未来の自分へのプレゼントです。</em>";
       }
+
+      if (res.monthStats) renderProgressBar(res.monthStats.count, res.monthStats.daysInMonth);
+      alert(res.status === "new" ? "保存しました。" : "更新しました。");
     })
-    .saveDiary(dateStr, text);
+    .saveDiary(dateStr, text, emotion);
 }
 
-/* ===== 統計表示更新 (日付入力欄が変わった時用) ===== */
-function loadMonthlyStatsFromDateInput() {
-  const dateStr = document.getElementById("date").value;
-  if(!dateStr) return;
-  const date = new Date(dateStr);
-  const y = date.getFullYear().toString();
-  const m = (date.getMonth() + 1).toString().padStart(2, "0");
+function getMysteryMessage(streak) {
+  const msgs = {
+    0: "まずは一歩。書かない日があっても、戻ってくればそれが正解です。",
+    1: "新しい物語が始まりました。一言だけでも、それは立派な記録です。",
+    2: "二日目。昨日の自分と今日の自分が、線でつながり始めました。",
+    3: "三日坊主の壁に王手。ここを越えたら景色が変わります。",
+    4: "四日目。日常の中に、少しずつ日記の席ができてきました。",
+    5: "五日目。感情を出すことは、心のデトックスになります。",
+    7: "一週間！あなたは自分の時間を大切にできる人ですね。",
+    10: "二桁の大台へ。書くことが少しずつ『呼吸』に近づいています。",
+    14: "二週間。もう立派な習慣です。自分を褒めてあげてください。",
+    20: "二十日目。日記帳があなたの「親友」になりつつあります。",
+    21: "三週間。心理学では、習慣が定着する一つの節目と言われています。",
+    30: "一ヶ月達成！一つの季節を、あなたは言葉で彩りました。",
+    40: "四十日目。継続という才能が、あなたの中で開花しています。",
+    50: "五十日目！人生の半分近くを記録してきたような重みがあります。",
+    60: "二ヶ月。あなたの言葉は、あなただけの財産です。",
+    77: "ラッキーセブン。幸運は、コツコツ続ける人の元へやってきます。",
+    100: "百日達成！！もはや伝説。あなたの歩みは、誰にも奪えない宝物です。"
+  };
   
-  // サーバーに問い合わせ
-  google.script.run
-    .withSuccessHandler(data => renderProgressBar(data.count, data.daysInMonth))
-    .getMonthlyStats(y, m);
+  if (msgs[streak]) return msgs[streak];
+  if (streak > 100) return `${streak}日目。あなたはもう、記録の達人。何も恐れることはありません。`;
+  return `${streak}日目。無理せず、あなたのペースで。`;
 }
 
-/* ===== 統計表示更新 (初期ロード用) ===== */
 function loadMonthlyStats() {
-  // 現在の日付欄の年月で取得
-  loadMonthlyStatsFromDateInput();
-  
-  // 連続日数の初期取得（保存しなくても表示されるように）
-  google.script.run
-    .withSuccessHandler(res => {
-        updateStreakDisplay(res.streak);
-        updateAchievements(res.streak);
-    })
-    .getStreakInfo_(""); // 引数空文字は無視される設計にしてあるが、関数シグネチャ上必要なら修正
+  const date = new Date(document.getElementById("date").value);
+  google.script.run.withSuccessHandler(data => {
+    renderProgressBar(data.count, data.daysInMonth);
+  }).getMonthlyStats(date.getFullYear().toString(), (date.getMonth() + 1).toString().padStart(2, "0"));
 }
 
 function renderProgressBar(count, daysInMonth) {
   const percent = Math.min(100, Math.floor((count / daysInMonth) * 100));
   document.getElementById("monthlyBar").style.width = percent + "%";
-  document.getElementById("monthlyText").textContent = `${count} / ${daysInMonth} 日`;
+  document.getElementById("monthlyText").textContent = `${count} / ${daysInMonth} 日 記録済み`;
 }
 
-function updateStreakDisplay(streak) {
-  const el = document.getElementById("streak");
-  el.textContent = `現在の連続記録：${streak} 日`;
-  document.getElementById("message").textContent = getMysteryMessage(streak);
-}
-
-/* ===== 一覧取得 ===== */
 function loadList() {
   const y = document.getElementById("year").value;
   const m = document.getElementById("month").value;
-  const ul = document.getElementById("list");
-  ul.innerHTML = "<li>読み込み中...</li>";
-
-  google.script.run
-    .withSuccessHandler(showList)
-    .getDiaryList(y, m);
+  google.script.run.withSuccessHandler(data => {
+    const ul = document.getElementById("list");
+    ul.innerHTML = data.length ? "" : "<li>記録がありません。</li>";
+    data.forEach(d => {
+      const li = document.createElement("li");
+      li.innerHTML = `<strong>${d.name}</strong><div class="preview">${d.preview}...</div>`;
+      li.onclick = () => loadContent(y, m, d.name);
+      ul.appendChild(li);
+    });
+  }).getDiaryList(y, m);
 }
 
-function showList(data) {
-  const ul = document.getElementById("list");
-  ul.innerHTML = "";
-
-  if (data.length === 0) {
-    ul.innerHTML = "<li>記録がありません。</li>";
-    return;
-  }
-
-  data.forEach(d => {
-    const li = document.createElement("li");
-    li.innerHTML = `<strong>${d.name}</strong><div class="preview">${d.preview}...</div>`;
-    li.onclick = () => loadContent(d.name);
-    ul.appendChild(li);
-  });
-}
-
-/* ===== 内容表示 ===== */
-function loadContent(fileName) {
-  const y = document.getElementById("year").value;
-  const m = document.getElementById("month").value;
-  document.getElementById("viewer").textContent = "読み込み中...";
-
-  google.script.run
-    .withSuccessHandler(text => {
-      document.getElementById("viewer").textContent = text;
-    })
-    .getDiaryContent(y, m, fileName);
-}
-
-function getMysteryMessage(streak) {
-  if (streak === 0) return "まずは一日。";
-  if (streak === 1) return "また一つ、記録が増えた。";
-  if (streak === 3) return "気づけば三日連続。偶然だろうか。";
-  if (streak === 7) return "一週間分の記録が揃った。何かが見えてきそうだ。";
-  if (streak === 14) return "二週間。書いているのは本当に“今の自分”か？";
-  if (streak >= 30) return "この量の記録を、あとで読む勇気はあるだろうか。";
-  return "記録は続く...";
-}
-
-function updateAchievements(streak) {
-  const ul = document.getElementById("achievements");
-  ul.innerHTML = "";
-  const achievements = [];
-  if (streak >= 3) achievements.push("三日坊主、回避");
-  if (streak >= 7) achievements.push("一週間の観測者");
-  if (streak >= 30) achievements.push("記録者");
-
-  achievements.forEach(a => {
-    const li = document.createElement("li");
-    li.textContent = `実績解除：${a}`;
-    ul.appendChild(li);
-  });
+function loadContent(y, m, fileName) {
+  google.script.run.withSuccessHandler(text => {
+    document.getElementById("viewer").textContent = text;
+  }).getDiaryContent(y, m, fileName);
 }
 </script>
-
 </body>
 </html>

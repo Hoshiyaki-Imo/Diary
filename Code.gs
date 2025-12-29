@@ -7,8 +7,8 @@ function doGet() {
     .setTitle("Diary");
 }
 
-/* ===== 日記保存（統計ロジック修正版） ===== */
-function saveDiary(dateStr, text) {
+/* ===== 日記保存（感情・振り返り対応） ===== */
+function saveDiary(dateStr, text, emotion) {
   const date = new Date(dateStr);
   const year = date.getFullYear().toString();
   const month = (date.getMonth() + 1).toString().padStart(2, "0");
@@ -18,36 +18,53 @@ function saveDiary(dateStr, text) {
   const yearFolder = getOrCreateFolder_(root, year);
   const monthFolder = getOrCreateFolder_(yearFolder, month);
 
+  // 1行目に感情、2行目以降に本文を保存
+  const fullContent = `【感情：${emotion}】\n${text}`;
+
   const files = monthFolder.getFilesByName(fileName);
-  let isNewFile = !files.hasNext(); // ファイルが存在しなければ新規
+  let isNewFile = !files.hasNext();
 
   if (!isNewFile) {
-    // すでにファイルがある場合は内容を更新（上書き）
-    const file = files.next();
-    file.setContent(text);
+    files.next().setContent(fullContent);
   } else {
-    // ない場合は新しく作成
-    monthFolder.createFile(fileName, text, MimeType.PLAIN_TEXT);
+    monthFolder.createFile(fileName, fullContent, MimeType.PLAIN_TEXT);
   }
 
-  // 最新の連続記録を計算
   const streakInfo = getCurrentStreak_();
-
-  // その月の最新の統計（ファイル数）を取得
   const stats = getMonthlyStatsForDate_(year, month);
-  
-  // 【ここが重要】ドライブの反映ラグ対策
-  // 新規作成した直後は countFilesInFolder_ がまだ 0 を返すことがあるため、
-  // 新規保存(isNewFile=true)なら、最低でも 1 以上のカウントを保証して返します。
-  if (isNewFile && stats.count === 0) {
-    stats.count = 1;
-  }
+  if (isNewFile && stats.count === 0) stats.count = 1;
+
+  // 7日前の日記を取得
+  const prevDate = new Date(date);
+  prevDate.setDate(date.getDate() - 7);
+  const pastDiary = getDiaryContentByDate_(prevDate);
 
   return { 
     status: isNewFile ? "new" : "overwrite", 
     streak: streakInfo.streak,
-    monthStats: stats 
+    monthStats: stats,
+    pastDiary: pastDiary 
   };
+}
+
+/* 特定の日付から日記を検索するヘルパー */
+function getDiaryContentByDate_(dateObj) {
+  const y = dateObj.getFullYear().toString();
+  const m = (dateObj.getMonth() + 1).toString().padStart(2, "0");
+  const d = dateObj.toISOString().slice(0, 10);
+  
+  const root = getRootFolder_();
+  if (!root) return null;
+  const yf = getSubFolder_(root, y);
+  if (!yf) return null;
+  const mf = getSubFolder_(yf, m);
+  if (!mf) return null;
+  
+  const files = mf.getFilesByName(`${d}.txt`);
+  if (files.hasNext()) {
+    return { date: d, content: files.next().getBlob().getDataAsString() };
+  }
+  return null;
 }
 
 /* ===== 月別一覧取得 ===== */
