@@ -3,379 +3,452 @@
 <head>
   <meta charset="UTF-8">
   <title>Diary</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    :root { --primary: #bb86fc; --bg: #f5f5f5; --surface: #ffffff; --on-surface: #333; --border: #eee; --text-sub: #888; }
+    :root { --primary: #bb86fc; --bg: #f5f5f5; --surface: #ffffff; --on-surface: #333; --border: #eee; --text-sub: #888; --success: #03dac6; --gold: #ffb100; }
     [data-theme="dark"] { --primary: #cfa6ff; --bg: #121212; --surface: #1e1e1e; --on-surface: #e1e1e1; --border: #333; --text-sub: #aaa; }
     
-    html { font-size: 16px; } 
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: var(--bg); color: var(--on-surface); transition: 0.3s; line-height: 1.5; }
-
-    /* コンテナを最大幅まで引き伸ばし、中央寄せを確実にする */
-    .container { 
-      max-width: 1000px; /* 横幅を広げました */
-      margin: 0 auto; 
-      padding: 0 20px 60px;
-      box-sizing: border-box;
-    }
-
-    .header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      padding: 30px 0; 
-    }
+    body { font-family: sans-serif; margin: 0; background: var(--bg); color: var(--on-surface); transition: 0.3s; line-height: 1.5; }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 20px 60px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; }
+    .header-btns { display: flex; align-items: center; gap: 10px; }
     
-    /* PCでも1カラム（横幅いっぱい）を基本とし、中央に配置 */
-    .main-grid { 
-      display: block; 
-      width: 100%;
-    }
-
-    .tab-bar { 
-      display: flex; 
-      background: var(--surface); 
-      border-radius: 16px; 
-      overflow: hidden; 
-      margin-bottom: 30px; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
-    }
-    .tab { 
-      flex: 1; 
-      text-align: center; 
-      padding: 16px 5px; 
-      cursor: pointer; 
-      font-size: 1rem; 
-      color: var(--text-sub); 
-      font-weight: bold; 
-      transition: 0.3s; 
-      border-bottom: 4px solid transparent; 
-    }
-    .tab.active { 
-      color: var(--primary); 
-      background: rgba(187, 134, 252, 0.1); 
-      border-bottom: 4px solid var(--primary); 
-    }
+    .tab-bar { display: flex; background: var(--surface); border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .tab { flex: 1; text-align: center; padding: 14px; cursor: pointer; font-size: 0.9rem; color: var(--text-sub); font-weight: bold; border-bottom: 3px solid transparent; }
+    .tab.active { color: var(--primary); background: rgba(187, 134, 252, 0.08); border-bottom: 3px solid var(--primary); }
     
-    .card { 
-      background: var(--surface); 
-      padding: 32px; 
-      border-radius: 24px; 
-      box-shadow: 0 8px 30px rgba(0,0,0,0.08); 
-      position: relative; 
-      overflow: hidden; 
-      margin-bottom: 30px; 
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 10px; color: var(--primary); letter-spacing: 0.05em; }
+    .card { background: var(--surface); padding: 24px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); position: relative; overflow: hidden; margin-bottom: 20px; }
+    label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 8px; color: var(--primary); }
+    input, select, textarea, button { width: 100%; padding: 12px; font-size: 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--on-surface); box-sizing: border-box; margin-bottom: 16px; outline: none; }
     
-    /* 入力要素も横に引き伸ばす */
-    input, select, textarea, button { 
-      width: 100%; 
-      padding: 14px; 
-      font-size: 1.1rem; 
-      border-radius: 14px; 
-      border: 1px solid var(--border); 
-      background: var(--bg); 
-      color: var(--on-surface); 
-      box-sizing: border-box; 
-      margin-bottom: 20px; 
-      outline: none; 
-      transition: 0.2s; 
-    }
-    input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(187,134,252,0.1); }
-    
-    .char-count { font-size: 0.8rem; color: var(--text-sub); text-align: right; margin-top: -15px; margin-bottom: 15px; }
-    
-    .btn { 
-      background: var(--primary); 
-      color: #000; 
-      font-weight: bold; 
-      border: none; 
-      cursor: pointer; 
-      padding: 18px; 
-      font-size: 1.1rem;
-      transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-    }
-    .btn:hover { filter: brightness(1.1); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(187,134,252,0.3); }
+    .btn { background: var(--primary); color: #000; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; position: relative; }
     .btn:active { transform: scale(0.98); }
     .btn-danger { background: #cf6679; color: #fff; }
-    .btn-danger:hover { box-shadow: 0 5px 15px rgba(207,102,121,0.3); }
+    .locked { opacity: 0.6; pointer-events: none; background: var(--border) !important; }
 
-    /* アニメーション */
-    .save-progress { position: absolute; bottom: 0; left: 0; height: 6px; background: var(--primary); width: 0; }
-    @keyframes saving-bar { from { width: 0%; } to { width: 95%; } }
-    .is-saving .save-progress { animation: saving-bar 3s forwards; }
+    /* 全画面ローダー */
+    #globalLoader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 3000; justify-content: center; align-items: center; backdrop-filter: blur(4px); flex-direction: column; color: #fff; }
+    .spinner { width: 45px; height: 45px; border: 5px solid rgba(255,255,255,0.2); border-top: 5px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 15px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    .loading-overlay { display: none; font-weight: bold; color: var(--primary); text-align: center; padding: 30px; animation: pulse 1.5s infinite; font-size: 1.2rem; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    /* カレンダー表示 */
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
+    .cal-header { font-size: 0.7rem; color: var(--text-sub); font-weight: bold; padding-bottom: 10px; }
+    .cal-day { aspect-ratio: 1; border-radius: 10px; font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--border); cursor: pointer; position: relative; }
+    .cal-day.has-entry { background: rgba(187, 134, 252, 0.15); border: 1px solid var(--primary); }
+    .cal-day .dot { width: 4px; height: 4px; background: var(--primary); border-radius: 50%; margin-top: 2px; }
 
-    /* グラフ：PCで見栄えが良いように少し高く、太く */
-    .chart-container { 
-      position: relative; 
-      height: 250px; 
-      border-bottom: 3px solid var(--border); 
-      display: flex; 
-      align-items: flex-end; 
-      margin: 50px 0 40px; 
-      padding: 0 10px;
-    }
-    .bar { flex: 1; background: var(--primary); margin: 0 5px; position: relative; border-radius: 6px 6px 0 0; min-height: 4px; transition: 0.3s; }
-    .bar:hover { filter: brightness(1.2); }
-    .bar-label { position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-sub); font-weight: bold; }
-    .avg-line { position: absolute; left: 0; right: 0; border-top: 2px dashed #ff4081; z-index: 10; }
-    .avg-label { position: absolute; right: 10px; top: -22px; color: #ff4081; font-size: 0.8rem; font-weight: bold; }
+    /* 画像表示（縮小・内容の下に表示用） */
+    .image-box { width: 100%; max-height: 300px; display: flex; align-items: center; justify-content: center; background: #000; border-radius: 12px; margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); }
+    .image-box img { max-width: 100%; max-height: 300px; object-fit: contain; }
 
-    .content-section { display: none; width: 100%; }
-    .content-section.active { display: block; animation: fadeIn 0.4s ease-out; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    
-    .diary-item { 
-      background: var(--surface); 
-      padding: 20px; 
-      border-radius: 18px; 
-      margin-bottom: 15px; 
-      border-left: 8px solid var(--primary); 
-      cursor: pointer; 
-      transition: 0.2s; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.04); 
-    }
-    .diary-item:hover { transform: translateX(5px); background: rgba(187, 134, 252, 0.05); }
-    .diary-item .time-tag { font-size: 0.8rem; color: var(--text-sub); float: right; background: var(--bg); padding: 4px 12px; border-radius: 20px; font-weight: bold; }
+    /* リストアイテム */
+    .diary-item { background: var(--surface); padding: 15px; border-radius: 16px; margin-bottom: 12px; border-left: 6px solid var(--primary); cursor: pointer; transition: 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .diary-item:hover { transform: translateX(5px); }
 
-    /* モーダル */
-    #customAlert { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; backdrop-filter: blur(6px); }
-    .alert-card { background: var(--surface); padding: 40px; border-radius: 30px; width: 100%; max-width: 400px; text-align: center; border: 2px solid var(--primary); box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-    .alert-success { border-color: var(--primary); box-shadow: 0 0 40px rgba(187, 134, 252, 0.5); animation: success-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-    @keyframes success-pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-    .alert-btns { display: flex; gap: 15px; margin-top: 30px; }
+    /* 分析グラフ */
+    .bar-frame { height: 120px; display: flex; align-items: flex-end; border-bottom: 2px solid var(--border); gap: 2px; position: relative; margin-bottom: 25px; }
+    .bar { flex: 1; background: var(--primary); border-radius: 2px 2px 0 0; position: relative; }
+    .bar-tick { position: absolute; bottom: -22px; font-size: 0.6rem; color: var(--text-sub); transform: translateX(-50%); left: 50%; white-space: nowrap; }
+
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+    .modal-card { background: var(--surface); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; border: 2px solid var(--primary); }
   </style>
 </head>
 <body data-theme="dark">
 
+<div id="globalLoader">
+  <div class="spinner"></div>
+  <div id="loaderText">読込中...</div>
+</div>
+
 <div class="container">
   <div class="header">
-    <h1 style="margin:0; font-size: 1.8rem; letter-spacing: -0.03em; font-weight: 900; color: var(--primary);">Diary</h1>
-    <button onclick="toggleTheme()" style="width:50px; height:50px; border-radius:50%; border:none; background:var(--surface); cursor:pointer; font-size:1.4rem; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">🌓</button>
+    <h1 style="margin:0; font-size: 1.4rem;">Diary</h1>
+    <div class="header-btns">
+      <button onclick="toggleTheme()" style="border:none; background:none; cursor:pointer; font-size:1.4rem;">🌓</button>
+      <button onclick="openSettings()" style="border:none; background:none; cursor:pointer; font-size:1.4rem;">⚙️</button>
+    </div>
   </div>
 
   <div class="tab-bar">
-    <div class="tab active" onclick="showTab('edit')">記録をつける</div>
-    <div class="tab" onclick="showTab('stats')">分析を見る</div>
-    <div class="tab" onclick="showTab('view')">履歴を確認</div>
+    <div class="tab active" onclick="showTab('edit')">記録</div>
+    <div class="tab" onclick="showTab('stats')">分析</div>
+    <div class="tab" onclick="showTab('view')">履歴</div>
   </div>
 
-  <div class="main-grid">
-    <div id="edit" class="content-section active">
-      <div id="inputCard" class="card">
-        <label>日付を選択</label>
-        <input type="date" id="date">
-        <div style="display:flex; gap:20px;">
-          <div style="flex:1"><label>今の気分</label>
-            <select id="emotion">
-              <option>普通</option><option>疲れた</option><option>怒ってる</option><option>悲しい</option><option>もやもや</option>
-            </select>
-          </div>
-          <div style="flex:1"><label>勉強時間 (分)</label>
-            <input type="number" id="studyTime" value="0" min="0">
-          </div>
-        </div>
-        <label>今日の内容</label>
-        <textarea id="diary" rows="6" oninput="updateCharCount()" placeholder="素晴らしい一日でしたか？"></textarea>
-        <div id="charCount" class="char-count">0 文字</div>
-        <button class="btn" onclick="checkOverwrite()" id="saveBtn">記録を保存する</button>
-        <div class="save-progress" id="saveProgress"></div>
+  <div id="edit" class="content-section">
+    <div class="card">
+      <label>日付</label><input type="date" id="date" onchange="autoLoadEntry()">
+      <div style="display:flex; gap:10px;">
+        <div style="flex:1"><label>気分</label><select id="emotion"><option>普通</option><option>疲れた</option><option>怒ってる</option><option>悲しい</option><option>もやもや</option></select></div>
+        <div style="flex:1"><label>勉強(分)</label><input type="number" id="studyTime" value="0"></div>
       </div>
-    </div>
-
-    <div id="stats" class="content-section">
-      <div class="card">
-        <div style="display:flex; gap:15px; margin-bottom:30px;">
-          <select id="statYear" onchange="refreshStats()" style="flex:1; margin:0;"></select>
-          <select id="statMonth" onchange="refreshStats()" style="flex:1; margin:0;"></select>
-          <select id="statMode" onchange="refreshStats()" style="flex:1; margin:0;"><option value="daily">日別の推移</option><option value="monthly">月別の推移</option></select>
-        </div>
-        <div id="chartTitle" style="font-size: 1.2rem; font-weight:bold; text-align:center; color: var(--primary); margin-bottom:10px;"></div>
-        <div class="chart-container" id="chartFrame"><div id="avgLine" class="avg-line"><span class="avg-label" id="avgLabel"></span></div></div>
-        <div id="statsSummary" style="font-size:1.1rem; text-align:center; font-weight: bold; background: rgba(187,134,252,0.1); padding:20px; border-radius:16px; color: var(--primary);"></div>
-      </div>
-    </div>
-
-    <div id="view" class="content-section">
-      <div class="card" style="margin-bottom: 30px;">
-        <div style="display:flex; gap:15px; margin-bottom:25px;">
-          <select id="viewYear" onchange="loadList()" style="flex:1; margin:0;"></select>
-          <select id="viewMonth" onchange="loadList()" style="flex:1; margin:0;"></select>
-        </div>
-        <div id="diaryList"></div>
+      <label>内容</label><textarea id="diary" rows="5" placeholder="何があった？"></textarea>
+      
+      <label>今日の写真</label>
+      <input type="file" id="imgInput" accept="image/*" onchange="handleImage(this)">
+      <div id="imagePreviewContainer" class="image-box" style="display:none; position:relative;">
+        <img id="imagePreview" src="">
+        <div style="position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; width:28px; height:28px; border-radius:50%; text-align:center; line-height:28px; cursor:pointer; font-weight:bold;" onclick="clearImage()">×</div>
       </div>
       
-      <div id="viewerCard" class="card" style="display:none; border:3px solid var(--primary); scroll-margin-top: 30px;">
-        <div id="loadingIndicator" class="loading-overlay">📄 データを取得しています...</div>
-        <div id="viewerContent">
-          <div id="viewDate" style="font-weight:900; color:var(--primary); margin-bottom:20px; font-size:1.5rem; border-bottom: 2px solid var(--border); padding-bottom: 15px;"></div>
-          <div id="viewBody" style="white-space:pre-wrap; font-size:1.1rem; margin-bottom:35px; min-height: 120px; color: var(--on-surface);"></div>
-          <div style="display:flex; gap:20px;">
-            <button class="btn" style="background:#666; color:#fff; flex:1; margin:0;" onclick="document.getElementById('viewerCard').style.display='none'">閉じる</button>
-            <button class="btn btn-danger" style="flex:1; margin:0;" id="deleteBtn">この記録を削除する</button>
-          </div>
+      <button class="btn" onclick="checkOverwrite()" id="saveBtn">保存</button>
+    </div>
+  </div>
+
+  <div id="stats" class="content-section" style="display:none">
+    <div class="card">
+      <div style="display:flex; gap:8px; margin-bottom:20px;">
+        <select id="statYear" onchange="refreshStats()"></select>
+        <select id="statMonth" onchange="refreshStats()"></select>
+      </div>
+      <div id="statsLoading" style="text-align:center; display:none; color:var(--primary);">集計中...</div>
+      <label>日別勉強時間</label>
+      <div id="dailyChart" class="bar-frame"></div>
+      <label>月別勉強時間</label>
+      <div id="monthlyChart" class="bar-frame"></div>
+    </div>
+  </div>
+
+  <div id="view" class="content-section" style="display:none">
+    <div class="card">
+      <div style="display:flex; justify-content: space-between; margin-bottom:15px;">
+        <div style="display:flex; gap:8px;">
+          <select id="viewYear" onchange="loadList()"></select>
+          <select id="viewMonth" onchange="loadList()"></select>
         </div>
+        <button onclick="toggleViewMode()" id="viewModeBtn" class="btn" style="width:auto; padding:5px 15px;">カレンダー</button>
+      </div>
+      <div id="diaryList"></div>
+      <div id="calendarView" style="display:none;"></div>
+    </div>
+    
+    <div id="viewerCard" class="card" style="display:none; border:2px solid var(--primary);">
+      <div id="viewMeta" style="font-size:0.8rem; color:var(--primary); margin-bottom:10px; font-weight:bold;"></div>
+      <div id="viewBody" style="white-space:pre-wrap; margin-bottom:20px;"></div>
+      <div id="viewImageContainer" class="image-box" style="display:none;"><img id="viewImage" src=""></div>
+      
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <button class="btn" style="background:#888; flex:1;" onclick="document.getElementById('viewerCard').style.display='none'">閉じる</button>
+        <button class="btn btn-danger" style="flex:1;" id="deleteBtn">削除</button>
       </div>
     </div>
   </div>
 </div>
 
-<div id="customAlert">
-  <div class="alert-card" id="alertCard">
-    <p id="alertMsg" style="margin-bottom:15px; font-weight:900; font-size: 1.3rem;"></p>
-    <div id="alertBtns" class="alert-btns"></div>
+<div id="settingsModal" class="modal-overlay">
+  <div class="modal-card">
+    <h3 style="margin:0 0 15px;">設定</h3>
+    <label>目標時間 (分)</label><input type="number" id="goalTime">
+    <button class="btn" onclick="saveGoal()">保存</button>
+    <button class="btn" style="background:#888;" onclick="closeSettings()">閉じる</button>
+  </div>
+</div>
+
+<div id="customAlert" class="modal-overlay">
+  <div class="modal-card" style="text-align:center;">
+    <p id="alertMsg" style="font-weight:bold;"></p>
+    <div id="alertBtns" style="display:flex; gap:10px; margin-top:20px;"></div>
   </div>
 </div>
 
 <script>
-let currentDiaryList = [];
-let deleteTarget = null;
+/* --- グローバル変数 --- */
+let currentDataList = [];
+let selectedImageData = null;
+let viewMode = 'list';
 
-function toggleTheme() { const b = document.body; b.setAttribute("data-theme", b.getAttribute("data-theme") === "dark" ? "light" : "dark"); }
+/* --- 基本UI制御 --- */
+function toggleLoader(show, text = "読込中...") {
+  const loader = document.getElementById("globalLoader");
+  if(!loader) return;
+  document.getElementById("loaderText").textContent = text;
+  loader.style.display = show ? "flex" : "none";
+}
 
 function showTab(t) {
-  document.querySelectorAll('.tab, .content-section').forEach(el => el.classList.remove('active'));
-  const activeTab = document.querySelector(`.tab[onclick*="${t}"]`);
-  if(activeTab) activeTab.classList.add('active');
-  document.getElementById(t).classList.add('active');
+  document.querySelectorAll('.content-section').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  const btn = document.querySelector(`.tab[onclick*="${t}"]`);
+  if(btn) btn.classList.add('active');
+  const section = document.getElementById(t);
+  if(section) section.style.display = 'block';
+  
   if(t === 'stats') refreshStats();
   if(t === 'view') loadList();
 }
 
-function updateCharCount() {
-  const text = document.getElementById("diary").value;
-  document.getElementById("charCount").textContent = text.length + " 文字";
+function toggleTheme() {
+  const b = document.body;
+  b.setAttribute("data-theme", b.getAttribute("data-theme") === "dark" ? "light" : "dark");
 }
 
-function showModal(msg, type = 'info', onConfirm = null) {
-  const modal = document.getElementById("customAlert");
-  const card = document.getElementById("alertCard");
-  const btnsEl = document.getElementById("alertBtns");
-  document.getElementById("alertMsg").textContent = msg;
-  btnsEl.innerHTML = "";
-  card.className = "alert-card";
-  
-  if (type === 'success') {
-    card.classList.add('alert-success');
-    const b = document.createElement("button"); b.className = "btn btn-ok"; b.textContent = "確認しました";
-    b.onclick = () => modal.style.display = "none";
-    btnsEl.appendChild(b);
-  } else if (type === 'confirm' || type === 'danger') {
-    const b1 = document.createElement("button"); b1.className = "btn btn-cancel"; b1.textContent = "戻る";
-    b1.onclick = () => modal.style.display = "none";
-    const b2 = document.createElement("button"); b2.className = "btn btn-ok"; b2.textContent = "実行";
-    if(type === 'danger') b2.style.background = "#cf6679";
-    b2.onclick = () => { modal.style.display = "none"; if(onConfirm) onConfirm(); };
-    btnsEl.appendChild(b1); btnsEl.appendChild(b2);
+function openSettings() { document.getElementById("settingsModal").style.display = "flex"; }
+function closeSettings() { document.getElementById("settingsModal").style.display = "none"; }
+
+/* --- 記録機能 --- */
+function handleImage(input) {
+  if (input.files && input.files[0]) {
+    toggleLoader(true, "画像を処理中...");
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const scale = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        selectedImageData = canvas.toDataURL('image/jpeg', 0.7);
+        document.getElementById("imagePreview").src = selectedImageData;
+        document.getElementById("imagePreviewContainer").style.display = "flex";
+        toggleLoader(false);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(input.files[0]);
   }
-  modal.style.display = "flex";
+}
+
+function clearImage() {
+  selectedImageData = null;
+  document.getElementById("imgInput").value = "";
+  document.getElementById("imagePreviewContainer").style.display = "none";
+}
+
+function autoLoadEntry() {
+  const dateStr = document.getElementById("date").value;
+  if (!dateStr) return;
+  toggleLoader(true, "データを取得中...");
+  google.script.run
+    .withSuccessHandler(json => {
+      toggleLoader(false);
+      if (json) {
+        document.getElementById("emotion").value = json.emotion;
+        document.getElementById("studyTime").value = json.studyTime;
+        document.getElementById("diary").value = json.content;
+        if (json.image) {
+          selectedImageData = json.image;
+          document.getElementById("imagePreview").src = json.image;
+          document.getElementById("imagePreviewContainer").style.display = "flex";
+        } else { clearImage(); }
+      } else {
+        document.getElementById("diary").value = "";
+        document.getElementById("studyTime").value = 0;
+        clearImage();
+      }
+    })
+    .withFailureHandler(() => toggleLoader(false))
+    .getDiaryContent(new Date(dateStr).getFullYear(), new Date(dateStr).getMonth() + 1, dateStr);
 }
 
 function checkOverwrite() {
   const date = document.getElementById("date").value;
-  if (currentDiaryList.some(d => d.name === date)) {
-    showModal("既に同じ日の記録が存在します。上書きしますか？", 'confirm', executeSave);
+  if (currentDataList.some(d => d.name === date)) {
+    showAlert("既に記録があります。上書きしますか？", 'confirm', executeSave);
   } else {
     executeSave();
   }
 }
 
 function executeSave() {
-  const btn = document.getElementById("saveBtn");
-  const card = document.getElementById("inputCard");
-  btn.disabled = true; btn.textContent = "保存中...";
-  card.classList.add('is-saving');
-  
-  google.script.run.withSuccessHandler(() => { 
-    card.classList.remove('is-saving');
-    showModal("日記を保存しました！", 'success'); 
-    btn.disabled = false; btn.textContent = "記録を保存する";
-    loadList(); refreshStats();
-  }).saveDiary(document.getElementById("date").value, document.getElementById("diary").value, document.getElementById("emotion").value, document.getElementById("studyTime").value);
+  toggleLoader(true, "保存中...");
+  google.script.run
+    .withSuccessHandler(() => {
+      toggleLoader(false);
+      showAlert("保存しました", 'info');
+      loadList();
+    })
+    .withFailureHandler(() => toggleLoader(false))
+    .saveDiary(
+      document.getElementById("date").value,
+      document.getElementById("diary").value,
+      document.getElementById("emotion").value,
+      document.getElementById("studyTime").value,
+      selectedImageData
+    );
 }
 
-function confirmDelete() {
-  if(!deleteTarget) return;
-  showModal("この記録を削除してもよろしいですか？\nこの操作は取り消せません。", 'danger', () => {
-    google.script.run.withSuccessHandler(() => {
-      document.getElementById('viewerCard').style.display = 'none';
-      showModal("削除が完了しました", 'success');
-      loadList(); refreshStats();
-    }).deleteDiary(deleteTarget.year, deleteTarget.month, deleteTarget.name);
-  });
-}
-
-window.onload = () => {
-  const now = new Date();
-  document.getElementById("date").valueAsDate = now;
-  const ys = [document.getElementById("statYear"), document.getElementById("viewYear")];
-  const ms = [document.getElementById("statMonth"), document.getElementById("viewMonth")];
-  ys.forEach(s => { for(let y=2024; y<=now.getFullYear(); y++) s.add(new Option(y+"年", y)); s.value = now.getFullYear(); });
-  ms.forEach(s => { for(let m=1; m<=12; m++) s.add(new Option(m+"月", m)); s.value = now.getMonth()+1; });
-  loadList(); refreshStats();
-};
-
-function refreshStats() {
-  const y = document.getElementById("statYear").value, m = document.getElementById("statMonth").value, mode = document.getElementById("statMode").value;
-  google.script.run.withSuccessHandler(res => {
-    const frame = document.getElementById("chartFrame");
-    const data = mode === 'daily' ? res.daily : res.monthly;
-    frame.querySelectorAll('.bar').forEach(b => b.remove());
-    const max = Math.max(...data.map(d => d.time), 60);
-    const sum = data.reduce((a, b) => a + b.time, 0);
-    const recorded = data.filter(d => mode === 'monthly' || d.recorded);
-    const avg = recorded.length ? Math.round(sum / recorded.length) : 0;
-    data.forEach(d => {
-      const bar = document.createElement("div"); bar.className = "bar"; bar.style.height = (d.time / max * 100) + "%";
-      if(mode === 'daily' && !d.recorded) bar.style.opacity = "0.15";
-      const lbl = document.createElement("span"); lbl.className = "bar-label";
-      const val = mode === 'daily' ? d.day : d.month;
-      if(mode === 'monthly' || val === 1 || val % 5 === 0) lbl.textContent = mode === 'daily' ? val : val + "月";
-      bar.appendChild(lbl); frame.appendChild(bar);
-    });
-    document.getElementById("avgLine").style.bottom = (avg / max * 100) + "%";
-    document.getElementById("avgLabel").textContent = "平均 " + avg + "分";
-    document.getElementById("chartTitle").textContent = mode === 'daily' ? res.targetLabel + " の統計" : y + "年 の月別統計";
-    document.getElementById("statsSummary").textContent = `総学習時間: ${sum}分 / 一日平均: ${avg}分`;
-  }).getDetailedStudyStats(y, m);
+/* --- 履歴機能 --- */
+function toggleViewMode() {
+  viewMode = (viewMode === 'list' ? 'calendar' : 'list');
+  document.getElementById("viewModeBtn").textContent = (viewMode === 'list' ? "カレンダー" : "リスト");
+  loadList();
 }
 
 function loadList() {
-  const y = document.getElementById("viewYear").value, m = document.getElementById("viewMonth").value;
-  google.script.run.withSuccessHandler(data => {
-    currentDiaryList = data;
-    const list = document.getElementById("diaryList");
-    list.innerHTML = data.length ? "" : "<div style='text-align:center;padding:40px;font-size:1rem;opacity:0.6;'>この月の記録はありません。</div>";
-    data.forEach(d => {
-      const div = document.createElement("div"); div.className = "diary-item";
-      div.innerHTML = `<span class="time-tag">${d.saveTime}</span><strong>${d.name} [${d.emotion}]</strong><br><small style="color:var(--text-sub)">${d.preview}...</small>`;
-      div.onclick = () => {
-        const vCard = document.getElementById("viewerCard");
-        const vContent = document.getElementById("viewerContent");
-        const vLoading = document.getElementById("loadingIndicator");
-        vCard.style.display = "block";
-        vContent.style.opacity = "0";
-        vLoading.style.display = "block";
-        vCard.scrollIntoView({ behavior: 'smooth' });
-        google.script.run.withSuccessHandler(txt => {
-          vLoading.style.display = "none";
-          vContent.style.opacity = "1";
-          document.getElementById("viewDate").textContent = d.name;
-          document.getElementById("viewBody").textContent = txt;
-          deleteTarget = { year: y, month: m, name: d.name };
-          document.getElementById("deleteBtn").onclick = confirmDelete;
-        }).getDiaryContent(y, m, d.name);
-      };
-      list.appendChild(div);
-    });
-  }).getDiaryList(y, m);
+  const y = document.getElementById("viewYear").value;
+  const m = document.getElementById("viewMonth").value;
+  toggleLoader(true, "履歴を取得中...");
+  google.script.run
+    .withSuccessHandler(data => {
+      try {
+        currentDataList = data || [];
+        if (viewMode === 'list') renderList(currentDataList);
+        else renderCalendar(currentDataList, y, m);
+      } catch(e) { console.error(e); }
+      toggleLoader(false);
+    })
+    .withFailureHandler(() => toggleLoader(false))
+    .getDiaryList(y, m);
 }
+
+function renderList(data) {
+  const list = document.getElementById("diaryList");
+  list.style.display = "block";
+  document.getElementById("calendarView").style.display = "none";
+  list.innerHTML = data.length ? "" : "<div style='text-align:center;padding:20px;opacity:0.5;'>記録はありません</div>";
+  data.forEach(d => {
+    const div = document.createElement("div");
+    div.className = "diary-item";
+    const imgIcon = d.hasImage ? " 🖼️" : "";
+    div.innerHTML = `<strong>${d.name}${imgIcon}</strong> <small style="float:right">${d.saveTime}</small><br><span style="font-size:0.8rem; opacity:0.7;">${d.preview}...</span>`;
+    div.onclick = () => openViewer(d.name);
+    list.appendChild(div);
+  });
+}
+
+function renderCalendar(data, year, month) {
+  const container = document.getElementById("calendarView");
+  container.style.display = "block";
+  document.getElementById("diaryList").style.display = "none";
+  container.innerHTML = "";
+  const grid = document.createElement("div");
+  grid.className = "calendar-grid";
+  ['日','月','火','水','木','金','土'].forEach(h => {
+    const d = document.createElement("div"); d.className = "cal-header"; d.textContent = h; grid.appendChild(d);
+  });
+  const first = new Date(year, month-1, 1).getDay();
+  const days = new Date(year, month, 0).getDate();
+  for(let i=0; i<first; i++) grid.appendChild(document.createElement("div"));
+  for(let d=1; d<=days; d++) {
+    const ds = `${year}-${month.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
+    const item = data.find(x => x.name === ds);
+    const div = document.createElement("div");
+    div.className = "cal-day";
+    div.textContent = d;
+    if(item) {
+      div.classList.add("has-entry");
+      const dot = document.createElement("div"); dot.className = "dot";
+      div.appendChild(dot);
+      const w = Math.min(item.studyTime / 180, 1);
+      div.style.backgroundColor = `rgba(187, 134, 252, ${0.15 + w * 0.7})`;
+      div.onclick = () => openViewer(ds);
+    }
+    grid.appendChild(div);
+  }
+  container.appendChild(grid);
+}
+
+function openViewer(name) {
+  const y = document.getElementById("viewYear").value;
+  const m = document.getElementById("viewMonth").value;
+  toggleLoader(true, "詳細を読込中...");
+  google.script.run
+    .withSuccessHandler(json => {
+      toggleLoader(false);
+      const vc = document.getElementById("viewerCard");
+      vc.style.display = "block";
+      document.getElementById("viewMeta").textContent = `${json.date} [${json.emotion}] 勉強:${json.studyTime}分`;
+      document.getElementById("viewBody").textContent = json.content;
+      const imgBox = document.getElementById("viewImageContainer");
+      if(json.image) {
+        imgBox.style.display = "flex";
+        document.getElementById("viewImage").src = json.image;
+      } else { imgBox.style.display = "none"; }
+      document.getElementById("deleteBtn").onclick = () => {
+        showAlert("この記録を削除しますか？", "danger", () => {
+          toggleLoader(true, "削除中...");
+          google.script.run.withSuccessHandler(() => {
+            toggleLoader(false);
+            vc.style.display = "none";
+            loadList();
+          }).deleteDiary(y, m, name);
+        });
+      };
+      vc.scrollIntoView({behavior: "smooth"});
+    })
+    .withFailureHandler(() => toggleLoader(false))
+    .getDiaryContent(y, m, name);
+}
+
+/* --- 分析機能 --- */
+function refreshStats() {
+  const y = document.getElementById("statYear").value;
+  const m = document.getElementById("statMonth").value;
+  toggleLoader(true, "統計を計算中...");
+  google.script.run
+    .withSuccessHandler(res => {
+      toggleLoader(false);
+      drawChart("dailyChart", res.daily.map(d => ({ label: d.day, val: d.time })), true, 5);
+      drawChart("monthlyChart", res.monthly.map(m => ({ label: m.month, val: m.time })), false, 1);
+    })
+    .withFailureHandler(() => toggleLoader(false))
+    .getDetailedStudyStats(y, m);
+}
+
+function drawChart(id, data, drawAvg, step) {
+  const frame = document.getElementById(id);
+  frame.innerHTML = "";
+  const max = Math.max(...data.map(d => d.val), 60);
+  data.forEach((d, i) => {
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.height = `${(d.val / max) * 100}%`;
+    if ((i + 1) % step === 0 || i === 0 || i === data.length - 1) {
+      const tick = document.createElement("div");
+      tick.className = "bar-tick";
+      tick.textContent = d.label;
+      bar.appendChild(tick);
+    }
+    frame.appendChild(bar);
+  });
+}
+
+/* --- アラート --- */
+function showAlert(msg, type, onConfirm) {
+  const modal = document.getElementById("customAlert");
+  const btns = document.getElementById("alertBtns");
+  document.getElementById("alertMsg").textContent = msg;
+  btns.innerHTML = "";
+  const close = () => modal.style.display = "none";
+  if (type === 'info') {
+    const b = document.createElement("button"); b.className="btn"; b.textContent="OK"; b.onclick=close; btns.appendChild(b);
+  } else {
+    const b1 = document.createElement("button"); b1.className="btn"; b1.style.background="#888"; b1.textContent="キャンセル"; b1.onclick=close;
+    const b2 = document.createElement("button"); b2.className="btn"; b2.textContent="実行";
+    if(type==='danger') b2.style.background="#cf6679";
+    b2.onclick=()=>{ close(); onConfirm(); };
+    btns.appendChild(b1); btns.appendChild(b2);
+  }
+  modal.style.display = "flex";
+}
+
+/* --- 初期化 --- */
+window.addEventListener('DOMContentLoaded', () => {
+  const now = new Date();
+  const dInput = document.getElementById("date");
+  if(dInput) dInput.valueAsDate = now;
+  
+  ["statYear", "viewYear"].forEach(id => {
+    const s = document.getElementById(id);
+    if(s) {
+      for(let y=2024; y<=now.getFullYear(); y++) s.add(new Option(y+"年", y));
+      s.value = now.getFullYear();
+    }
+  });
+  ["statMonth", "viewMonth"].forEach(id => {
+    const s = document.getElementById(id);
+    if(s) {
+      for(let m=1; m<=12; m++) s.add(new Option(m+"月", m));
+      s.value = now.getMonth()+1;
+    }
+  });
+  loadList();
+});
 </script>
 </body>
 </html>
