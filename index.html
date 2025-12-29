@@ -24,32 +24,42 @@
     .btn { background: var(--primary); color: #000; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; position: relative; }
     .btn:active { transform: scale(0.98); }
     .btn-danger { background: #cf6679; color: #fff; }
-    .locked { opacity: 0.6; pointer-events: none; background: var(--border) !important; }
+    .locked { opacity: 0.6; pointer-events: none; background: var(--border) !important; color: var(--text-sub) !important; }
 
-    /* 全画面ローダー */
     #globalLoader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 3000; justify-content: center; align-items: center; backdrop-filter: blur(4px); flex-direction: column; color: #fff; }
     .spinner { width: 45px; height: 45px; border: 5px solid rgba(255,255,255,0.2); border-top: 5px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 15px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    /* カレンダー表示 */
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
     .cal-header { font-size: 0.7rem; color: var(--text-sub); font-weight: bold; padding-bottom: 10px; }
     .cal-day { aspect-ratio: 1; border-radius: 10px; font-size: 0.75rem; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--border); cursor: pointer; position: relative; }
     .cal-day.has-entry { background: rgba(187, 134, 252, 0.15); border: 1px solid var(--primary); }
     .cal-day .dot { width: 4px; height: 4px; background: var(--primary); border-radius: 50%; margin-top: 2px; }
 
-    /* 画像表示（縮小・内容の下に表示用） */
     .image-box { width: 100%; max-height: 300px; display: flex; align-items: center; justify-content: center; background: #000; border-radius: 12px; margin-bottom: 16px; overflow: hidden; border: 1px solid var(--border); }
     .image-box img { max-width: 100%; max-height: 300px; object-fit: contain; }
 
-    /* リストアイテム */
     .diary-item { background: var(--surface); padding: 15px; border-radius: 16px; margin-bottom: 12px; border-left: 6px solid var(--primary); cursor: pointer; transition: 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
     .diary-item:hover { transform: translateX(5px); }
 
-    /* 分析グラフ */
-    .bar-frame { height: 120px; display: flex; align-items: flex-end; border-bottom: 2px solid var(--border); gap: 2px; position: relative; margin-bottom: 25px; }
-    .bar { flex: 1; background: var(--primary); border-radius: 2px 2px 0 0; position: relative; }
+    .chart-wrapper { position: relative; padding-left: 35px; margin-bottom: 35px; margin-top: 10px; }
+    .y-axis { position: absolute; left: 0; top: 0; bottom: 0; width: 35px; display: flex; flex-direction: column; justify-content: space-between; font-size: 0.6rem; color: var(--text-sub); text-align: right; padding-right: 5px; box-sizing: border-box; border-right: 1px solid var(--border); }
+    .bar-frame { height: 120px; display: flex; align-items: flex-end; border-bottom: 2px solid var(--border); gap: 2px; position: relative; }
+    .bar { flex: 1; background: var(--primary); border-radius: 2px 2px 0 0; position: relative; cursor: pointer; transition: 0.2s; }
+    .bar:hover { filter: brightness(1.2); }
     .bar-tick { position: absolute; bottom: -22px; font-size: 0.6rem; color: var(--text-sub); transform: translateX(-50%); left: 50%; white-space: nowrap; }
+    
+    .avg-line { position: absolute; left: 0; right: 0; border-top: 1px dashed #cf6679; z-index: 10; pointer-events: none; }
+    .avg-label { position: absolute; right: 0; font-size: 0.6rem; color: #cf6679; background: var(--surface); padding: 0 2px; transform: translateY(-50%); z-index: 11; font-weight: bold; }
+
+    .tooltip { position: fixed; background: #333; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; pointer-events: none; opacity: 0; transition: 0.1s; z-index: 4000; white-space: nowrap; transform: translate(-50%, -120%); }
+
+    /* 継続日数・目標バッジ */
+    .streak-badge { background: linear-gradient(135deg, #ffb100, #ff6d00); color: #000; padding: 12px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(255,177,0,0.2); }
+    .monthly-goal-box { background: rgba(187, 134, 252, 0.1); border: 1px dashed var(--primary); padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; }
+
+    .progress-frame { height: 20px; background: var(--border); border-radius: 10px; overflow: hidden; margin: 10px 0; position: relative; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--success)); width: 0%; transition: 1s; }
 
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
     .modal-card { background: var(--surface); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; border: 2px solid var(--primary); }
@@ -61,6 +71,7 @@
   <div class="spinner"></div>
   <div id="loaderText">読込中...</div>
 </div>
+<div id="chartTooltip" class="tooltip"></div>
 
 <div class="container">
   <div class="header">
@@ -73,11 +84,21 @@
 
   <div class="tab-bar">
     <div class="tab active" onclick="showTab('edit')">記録</div>
-    <div class="tab" onclick="showTab('stats')">分析</div>
+    <div class="tab" onclick="showTab('stats')">学習</div>
     <div class="tab" onclick="showTab('view')">履歴</div>
   </div>
 
   <div id="edit" class="content-section">
+    <div class="streak-badge">
+      <span style="font-size:1.2rem;">🔥</span>
+      <span>連続記録: <span id="streakCount" style="font-size:1.4rem;">0</span> 日</span>
+    </div>
+    
+    <div id="monthlyGoalDisplay" class="monthly-goal-box">
+      <label style="margin-bottom:4px;">今月の目標</label>
+      <div id="goalText" style="font-weight:bold; font-size:1.1rem; color:var(--on-surface);">未設定</div>
+    </div>
+
     <div class="card">
       <label>日付</label><input type="date" id="date" onchange="autoLoadEntry()">
       <div style="display:flex; gap:10px;">
@@ -85,14 +106,12 @@
         <div style="flex:1"><label>勉強(分)</label><input type="number" id="studyTime" value="0"></div>
       </div>
       <label>内容</label><textarea id="diary" rows="5" placeholder="何があった？"></textarea>
-      
       <label>今日の写真</label>
       <input type="file" id="imgInput" accept="image/*" onchange="handleImage(this)">
       <div id="imagePreviewContainer" class="image-box" style="display:none; position:relative;">
         <img id="imagePreview" src="">
         <div style="position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; width:28px; height:28px; border-radius:50%; text-align:center; line-height:28px; cursor:pointer; font-weight:bold;" onclick="clearImage()">×</div>
       </div>
-      
       <button class="btn" onclick="checkOverwrite()" id="saveBtn">保存</button>
     </div>
   </div>
@@ -103,11 +122,22 @@
         <select id="statYear" onchange="refreshStats()"></select>
         <select id="statMonth" onchange="refreshStats()"></select>
       </div>
-      <div id="statsLoading" style="text-align:center; display:none; color:var(--primary);">集計中...</div>
-      <label>日別勉強時間</label>
-      <div id="dailyChart" class="bar-frame"></div>
-      <label>月別勉強時間</label>
-      <div id="monthlyChart" class="bar-frame"></div>
+      
+      <label id="progressLabel">今月の勉強目標達成率: 0%</label>
+      <div class="progress-frame"><div id="progressBar" class="progress-bar"></div></div>
+      <p id="progressSub" style="font-size:0.7rem; color:var(--text-sub); margin-bottom:20px;"></p>
+
+      <label>日別勉強時間 (分)</label>
+      <div class="chart-wrapper">
+        <div id="yAxisDaily" class="y-axis"></div>
+        <div id="dailyChart" class="bar-frame"></div>
+      </div>
+
+      <label>月別勉強時間 (分)</label>
+      <div class="chart-wrapper">
+        <div id="yAxisMonthly" class="y-axis"></div>
+        <div id="monthlyChart" class="bar-frame"></div>
+      </div>
     </div>
   </div>
 
@@ -123,12 +153,10 @@
       <div id="diaryList"></div>
       <div id="calendarView" style="display:none;"></div>
     </div>
-    
     <div id="viewerCard" class="card" style="display:none; border:2px solid var(--primary);">
       <div id="viewMeta" style="font-size:0.8rem; color:var(--primary); margin-bottom:10px; font-weight:bold;"></div>
       <div id="viewBody" style="white-space:pre-wrap; margin-bottom:20px;"></div>
       <div id="viewImageContainer" class="image-box" style="display:none;"><img id="viewImage" src=""></div>
-      
       <div style="display:flex; gap:10px; margin-top:10px;">
         <button class="btn" style="background:#888; flex:1;" onclick="document.getElementById('viewerCard').style.display='none'">閉じる</button>
         <button class="btn btn-danger" style="flex:1;" id="deleteBtn">削除</button>
@@ -139,9 +167,19 @@
 
 <div id="settingsModal" class="modal-overlay">
   <div class="modal-card">
-    <h3 style="margin:0 0 15px;">設定</h3>
-    <label>目標時間 (分)</label><input type="number" id="goalTime">
-    <button class="btn" onclick="saveGoal()">保存</button>
+    <h3 style="margin:0 0 15px;">目標設定</h3>
+    
+    <label>今月の目標（全般）</label>
+    <textarea id="goalTextPrompt" rows="2" placeholder="例: 毎日運動する、読了するなど" style="width:100%; margin-bottom:10px; border-radius:12px; border:1px solid var(--border); padding:10px; background:var(--bg); color:var(--on-surface); font-family:inherit;"></textarea>
+    <button class="btn" id="goalLockBtnText" onclick="saveGeneralGoal()">目標を保存してロック</button>
+
+    <div style="border-top:1px solid var(--border); margin:15px 0; padding-top:15px;"></div>
+
+    <label>学習目標時間 (分)</label>
+    <input type="number" id="goalTimeInput" placeholder="例: 3000">
+    <button class="btn" id="goalLockBtn" onclick="saveGoal()">時間を保存してロック</button>
+    
+    <p style="font-size: 0.7rem; color: var(--text-sub); margin-top: 5px;">※一度保存するとその月は変更できません。</p>
     <button class="btn" style="background:#888;" onclick="closeSettings()">閉じる</button>
   </div>
 </div>
@@ -154,12 +192,10 @@
 </div>
 
 <script>
-/* --- グローバル変数 --- */
 let currentDataList = [];
 let selectedImageData = null;
 let viewMode = 'list';
 
-/* --- 基本UI制御 --- */
 function toggleLoader(show, text = "読込中...") {
   const loader = document.getElementById("globalLoader");
   if(!loader) return;
@@ -172,11 +208,10 @@ function showTab(t) {
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   const btn = document.querySelector(`.tab[onclick*="${t}"]`);
   if(btn) btn.classList.add('active');
-  const section = document.getElementById(t);
-  if(section) section.style.display = 'block';
-  
+  document.getElementById(t).style.display = 'block';
   if(t === 'stats') refreshStats();
   if(t === 'view') loadList();
+  if(t === 'edit') calculateStreak();
 }
 
 function toggleTheme() {
@@ -184,8 +219,64 @@ function toggleTheme() {
   b.setAttribute("data-theme", b.getAttribute("data-theme") === "dark" ? "light" : "dark");
 }
 
-function openSettings() { document.getElementById("settingsModal").style.display = "flex"; }
+/* --- 設定・目標ロック --- */
+function openSettings() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  
+  // 学習時間目標
+  const keyTime = `goal_${year}_${month}`;
+  const savedTime = localStorage.getItem(keyTime);
+  const inputTime = document.getElementById("goalTimeInput");
+  const btnTime = document.getElementById("goalLockBtn");
+  if (savedTime) {
+    inputTime.value = savedTime; inputTime.classList.add("locked"); btnTime.classList.add("locked"); btnTime.textContent = "ロック済み";
+  } else {
+    inputTime.value = ""; inputTime.classList.remove("locked"); btnTime.classList.remove("locked"); btnTime.textContent = "時間を保存してロック";
+  }
+
+  // 全般目標
+  const keyText = `goal_text_${year}_${month}`;
+  const savedText = localStorage.getItem(keyText);
+  const inputText = document.getElementById("goalTextPrompt");
+  const btnText = document.getElementById("goalLockBtnText");
+  if (savedText) {
+    inputText.value = savedText; inputText.classList.add("locked"); btnText.classList.add("locked"); btnText.textContent = "ロック済み";
+  } else {
+    inputText.value = ""; inputText.classList.remove("locked"); btnText.classList.remove("locked"); btnText.textContent = "目標を保存してロック";
+  }
+
+  document.getElementById("settingsModal").style.display = "flex";
+}
 function closeSettings() { document.getElementById("settingsModal").style.display = "none"; }
+
+function saveGoal() {
+  const val = document.getElementById("goalTimeInput").value;
+  if (!val) return;
+  showAlert(`学習目標を${val}分でロックしますか？`, 'confirm', () => {
+    const now = new Date();
+    localStorage.setItem(`goal_${now.getFullYear()}_${now.getMonth() + 1}`, val);
+    closeSettings(); refreshStats();
+  });
+}
+
+function saveGeneralGoal() {
+  const val = document.getElementById("goalTextPrompt").value;
+  if (!val) return;
+  showAlert(`この目標でロックしますか？`, 'confirm', () => {
+    const now = new Date();
+    localStorage.setItem(`goal_text_${now.getFullYear()}_${now.getMonth() + 1}`, val);
+    updateGoalDisplay();
+    closeSettings();
+  });
+}
+
+function updateGoalDisplay() {
+  const now = new Date();
+  const saved = localStorage.getItem(`goal_text_${now.getFullYear()}_${now.getMonth() + 1}`);
+  document.getElementById("goalText").textContent = saved || "未設定 (⚙️から設定してください)";
+}
 
 /* --- 記録機能 --- */
 function handleImage(input) {
@@ -196,10 +287,8 @@ function handleImage(input) {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
-        const scale = MAX_WIDTH / img.width;
-        canvas.width = MAX_WIDTH;
-        canvas.height = img.height * scale;
+        const MAX_WIDTH = 800; const scale = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH; canvas.height = img.height * scale;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         selectedImageData = canvas.toDataURL('image/jpeg', 0.7);
@@ -212,203 +301,178 @@ function handleImage(input) {
     reader.readAsDataURL(input.files[0]);
   }
 }
-
 function clearImage() {
-  selectedImageData = null;
-  document.getElementById("imgInput").value = "";
-  document.getElementById("imagePreviewContainer").style.display = "none";
+  selectedImageData = null; document.getElementById("imgInput").value = ""; document.getElementById("imagePreviewContainer").style.display = "none";
 }
-
 function autoLoadEntry() {
   const dateStr = document.getElementById("date").value;
   if (!dateStr) return;
   toggleLoader(true, "データを取得中...");
-  google.script.run
-    .withSuccessHandler(json => {
-      toggleLoader(false);
-      if (json) {
-        document.getElementById("emotion").value = json.emotion;
-        document.getElementById("studyTime").value = json.studyTime;
-        document.getElementById("diary").value = json.content;
-        if (json.image) {
-          selectedImageData = json.image;
-          document.getElementById("imagePreview").src = json.image;
-          document.getElementById("imagePreviewContainer").style.display = "flex";
-        } else { clearImage(); }
-      } else {
-        document.getElementById("diary").value = "";
-        document.getElementById("studyTime").value = 0;
-        clearImage();
-      }
-    })
-    .withFailureHandler(() => toggleLoader(false))
-    .getDiaryContent(new Date(dateStr).getFullYear(), new Date(dateStr).getMonth() + 1, dateStr);
+  google.script.run.withSuccessHandler(json => {
+    toggleLoader(false);
+    if (json) {
+      document.getElementById("emotion").value = json.emotion;
+      document.getElementById("studyTime").value = json.studyTime;
+      document.getElementById("diary").value = json.content;
+      if (json.image) {
+        selectedImageData = json.image; document.getElementById("imagePreview").src = json.image; document.getElementById("imagePreviewContainer").style.display = "flex";
+      } else { clearImage(); }
+    } else {
+      document.getElementById("diary").value = ""; document.getElementById("studyTime").value = 0; clearImage();
+    }
+  }).getDiaryContent(new Date(dateStr).getFullYear(), new Date(dateStr).getMonth() + 1, dateStr);
 }
-
 function checkOverwrite() {
   const date = document.getElementById("date").value;
-  if (currentDataList.some(d => d.name === date)) {
-    showAlert("既に記録があります。上書きしますか？", 'confirm', executeSave);
-  } else {
-    executeSave();
-  }
+  if (currentDataList.some(d => d.name === date)) showAlert("既に記録があります。上書きしますか？", 'confirm', executeSave);
+  else executeSave();
 }
-
 function executeSave() {
   toggleLoader(true, "保存中...");
-  google.script.run
-    .withSuccessHandler(() => {
-      toggleLoader(false);
-      showAlert("保存しました", 'info');
-      loadList();
-    })
-    .withFailureHandler(() => toggleLoader(false))
-    .saveDiary(
-      document.getElementById("date").value,
-      document.getElementById("diary").value,
-      document.getElementById("emotion").value,
-      document.getElementById("studyTime").value,
-      selectedImageData
-    );
+  google.script.run.withSuccessHandler(() => { toggleLoader(false); showAlert("保存しました", 'info'); calculateStreak(); loadList(); })
+    .saveDiary(document.getElementById("date").value, document.getElementById("diary").value, document.getElementById("emotion").value, document.getElementById("studyTime").value, selectedImageData);
 }
 
-/* --- 履歴機能 --- */
+/* --- 履歴 --- */
 function toggleViewMode() {
   viewMode = (viewMode === 'list' ? 'calendar' : 'list');
   document.getElementById("viewModeBtn").textContent = (viewMode === 'list' ? "カレンダー" : "リスト");
   loadList();
 }
-
 function loadList() {
   const y = document.getElementById("viewYear").value;
   const m = document.getElementById("viewMonth").value;
-  toggleLoader(true, "履歴を取得中...");
-  google.script.run
-    .withSuccessHandler(data => {
-      try {
-        currentDataList = data || [];
-        if (viewMode === 'list') renderList(currentDataList);
-        else renderCalendar(currentDataList, y, m);
-      } catch(e) { console.error(e); }
-      toggleLoader(false);
-    })
-    .withFailureHandler(() => toggleLoader(false))
-    .getDiaryList(y, m);
+  toggleLoader(true, "取得中...");
+  google.script.run.withSuccessHandler(data => {
+    currentDataList = data || [];
+    if (viewMode === 'list') renderList(currentDataList); else renderCalendar(currentDataList, y, m);
+    toggleLoader(false);
+  }).getDiaryList(y, m);
 }
-
 function renderList(data) {
   const list = document.getElementById("diaryList");
-  list.style.display = "block";
-  document.getElementById("calendarView").style.display = "none";
-  list.innerHTML = data.length ? "" : "<div style='text-align:center;padding:20px;opacity:0.5;'>記録はありません</div>";
+  list.style.display = "block"; document.getElementById("calendarView").style.display = "none";
+  list.innerHTML = data.length ? "" : "<div style='text-align:center;padding:20px;opacity:0.5;'>なし</div>";
   data.forEach(d => {
-    const div = document.createElement("div");
-    div.className = "diary-item";
-    const imgIcon = d.hasImage ? " 🖼️" : "";
-    div.innerHTML = `<strong>${d.name}${imgIcon}</strong> <small style="float:right">${d.saveTime}</small><br><span style="font-size:0.8rem; opacity:0.7;">${d.preview}...</span>`;
+    const div = document.createElement("div"); div.className = "diary-item";
+    div.innerHTML = `<strong>${d.name}${d.hasImage ? " 🖼️" : ""}</strong> <small style="float:right">${d.saveTime}</small><br><span style="font-size:0.8rem; opacity:0.7;">${d.preview}...</span>`;
     div.onclick = () => openViewer(d.name);
     list.appendChild(div);
   });
 }
-
 function renderCalendar(data, year, month) {
   const container = document.getElementById("calendarView");
-  container.style.display = "block";
-  document.getElementById("diaryList").style.display = "none";
+  container.style.display = "block"; document.getElementById("diaryList").style.display = "none";
   container.innerHTML = "";
-  const grid = document.createElement("div");
-  grid.className = "calendar-grid";
-  ['日','月','火','水','木','金','土'].forEach(h => {
-    const d = document.createElement("div"); d.className = "cal-header"; d.textContent = h; grid.appendChild(d);
-  });
+  const grid = document.createElement("div"); grid.className = "calendar-grid";
+  ['日','月','火','水','木','金','土'].forEach(h => { const d = document.createElement("div"); d.className = "cal-header"; d.textContent = h; grid.appendChild(d); });
   const first = new Date(year, month-1, 1).getDay();
   const days = new Date(year, month, 0).getDate();
   for(let i=0; i<first; i++) grid.appendChild(document.createElement("div"));
   for(let d=1; d<=days; d++) {
     const ds = `${year}-${month.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
     const item = data.find(x => x.name === ds);
-    const div = document.createElement("div");
-    div.className = "cal-day";
-    div.textContent = d;
+    const div = document.createElement("div"); div.className = "cal-day"; div.textContent = d;
     if(item) {
       div.classList.add("has-entry");
-      const dot = document.createElement("div"); dot.className = "dot";
-      div.appendChild(dot);
-      const w = Math.min(item.studyTime / 180, 1);
-      div.style.backgroundColor = `rgba(187, 134, 252, ${0.15 + w * 0.7})`;
+      const dot = document.createElement("div"); dot.className = "dot"; div.appendChild(dot);
+      div.style.backgroundColor = `rgba(187, 134, 252, ${0.15 + Math.min(item.studyTime / 180, 1) * 0.7})`;
       div.onclick = () => openViewer(ds);
     }
     grid.appendChild(div);
   }
   container.appendChild(grid);
 }
-
 function openViewer(name) {
-  const y = document.getElementById("viewYear").value;
-  const m = document.getElementById("viewMonth").value;
-  toggleLoader(true, "詳細を読込中...");
-  google.script.run
-    .withSuccessHandler(json => {
-      toggleLoader(false);
-      const vc = document.getElementById("viewerCard");
-      vc.style.display = "block";
-      document.getElementById("viewMeta").textContent = `${json.date} [${json.emotion}] 勉強:${json.studyTime}分`;
-      document.getElementById("viewBody").textContent = json.content;
-      const imgBox = document.getElementById("viewImageContainer");
-      if(json.image) {
-        imgBox.style.display = "flex";
-        document.getElementById("viewImage").src = json.image;
-      } else { imgBox.style.display = "none"; }
-      document.getElementById("deleteBtn").onclick = () => {
-        showAlert("この記録を削除しますか？", "danger", () => {
-          toggleLoader(true, "削除中...");
-          google.script.run.withSuccessHandler(() => {
-            toggleLoader(false);
-            vc.style.display = "none";
-            loadList();
-          }).deleteDiary(y, m, name);
-        });
-      };
-      vc.scrollIntoView({behavior: "smooth"});
-    })
-    .withFailureHandler(() => toggleLoader(false))
-    .getDiaryContent(y, m, name);
+  toggleLoader(true, "詳細...");
+  google.script.run.withSuccessHandler(json => {
+    toggleLoader(false);
+    const vc = document.getElementById("viewerCard"); vc.style.display = "block";
+    document.getElementById("viewMeta").textContent = `${json.date} [${json.emotion}] ${json.studyTime}分`;
+    document.getElementById("viewBody").textContent = json.content;
+    const imgBox = document.getElementById("viewImageContainer");
+    if(json.image) { imgBox.style.display="flex"; document.getElementById("viewImage").src=json.image; } else imgBox.style.display="none";
+    document.getElementById("deleteBtn").onclick = () => showAlert("削除しますか？", "danger", () => {
+      toggleLoader(true, "削除中...");
+      google.script.run.withSuccessHandler(() => { toggleLoader(false); vc.style.display="none"; loadList(); }).deleteDiary(document.getElementById("viewYear").value, document.getElementById("viewMonth").value, name);
+    });
+    vc.scrollIntoView({behavior: "smooth"});
+  }).getDiaryContent(document.getElementById("viewYear").value, document.getElementById("viewMonth").value, name);
 }
 
-/* --- 分析機能 --- */
+/* --- 学習分析 --- */
 function refreshStats() {
   const y = document.getElementById("statYear").value;
   const m = document.getElementById("statMonth").value;
-  toggleLoader(true, "統計を計算中...");
-  google.script.run
-    .withSuccessHandler(res => {
-      toggleLoader(false);
-      drawChart("dailyChart", res.daily.map(d => ({ label: d.day, val: d.time })), true, 5);
-      drawChart("monthlyChart", res.monthly.map(m => ({ label: m.month, val: m.time })), false, 1);
-    })
-    .withFailureHandler(() => toggleLoader(false))
-    .getDetailedStudyStats(y, m);
+  toggleLoader(true, "分析中...");
+  google.script.run.withSuccessHandler(res => {
+    toggleLoader(false);
+    const goal = localStorage.getItem(`goal_${y}_${m}`) || 0;
+    const total = res.daily.reduce((a, b) => a + b.time, 0);
+    const percent = goal > 0 ? Math.min(Math.round((total / goal) * 100), 100) : 0;
+    document.getElementById("progressBar").style.width = percent + "%";
+    document.getElementById("progressLabel").textContent = `今月の勉強目標達成率: ${percent}%`;
+    document.getElementById("progressSub").textContent = goal > 0 ? `合計: ${total}分 / 目標: ${goal}分` : "学習目標時間が設定されていません";
+    drawChartWithAxis("dailyChart", "yAxisDaily", res.daily.map(d => ({ label: d.day, val: d.time })), true, 5);
+    drawChartWithAxis("monthlyChart", "yAxisMonthly", res.monthly.map(m => ({ label: m.month, val: m.time })), false, 1);
+  }).getDetailedStudyStats(y, m);
 }
 
-function drawChart(id, data, drawAvg, step) {
-  const frame = document.getElementById(id);
-  frame.innerHTML = "";
-  const max = Math.max(...data.map(d => d.val), 60);
+function calculateStreak() {
+  const y = new Date().getFullYear();
+  const m = new Date().getMonth() + 1;
+  google.script.run.withSuccessHandler(data => {
+    if(!data || data.length === 0) { document.getElementById("streakCount").textContent = "0"; return; }
+    const sorted = data.map(d => d.name).sort().reverse();
+    const today = new Date(); today.setHours(0,0,0,0);
+    let count = 0;
+    let checkDate = new Date(sorted[0]); checkDate.setHours(0,0,0,0);
+    const diff = (today - checkDate) / (1000 * 60 * 60 * 24);
+    if (diff > 1) { document.getElementById("streakCount").textContent = "0"; return; }
+    for(let i=0; i < sorted.length; i++) {
+      const d = new Date(sorted[i]); d.setHours(0,0,0,0);
+      if (i === 0) { count = 1; } else {
+        const prev = new Date(sorted[i-1]); prev.setHours(0,0,0,0);
+        const gap = (prev - d) / (1000 * 60 * 60 * 24);
+        if (gap === 1) count++; else break;
+      }
+    }
+    document.getElementById("streakCount").textContent = count;
+  }).getDiaryList(y, m); 
+}
+
+function drawChartWithAxis(chartId, axisId, data, drawAvg, step) {
+  const frame = document.getElementById(chartId);
+  const axis = document.getElementById(axisId);
+  const tooltip = document.getElementById("chartTooltip");
+  frame.innerHTML = ""; axis.innerHTML = "";
+  const vals = data.map(d => d.val);
+  const max = Math.max(...vals, 60);
+  const avg = vals.length ? (vals.reduce((a,b)=>a+b,0) / vals.length) : 0;
+  for(let i=4; i>=0; i--) {
+    const d = document.createElement("div"); d.textContent = Math.round(max * (i/4)); axis.appendChild(d);
+  }
+  if(drawAvg && avg > 0) {
+    const line = document.createElement("div"); line.className = "avg-line"; line.style.bottom = `${(avg/max)*100}%`;
+    const lbl = document.createElement("div"); lbl.className = "avg-label"; lbl.textContent = `平均:${Math.round(avg)}`;
+    line.appendChild(lbl); frame.appendChild(line);
+  }
   data.forEach((d, i) => {
     const bar = document.createElement("div");
-    bar.className = "bar";
-    bar.style.height = `${(d.val / max) * 100}%`;
+    bar.className = "bar"; bar.style.height = `${(d.val / max) * 100}%`;
+    const showTT = (e) => {
+      tooltip.textContent = `${d.label}: ${d.val}分`; tooltip.style.opacity = 1;
+      tooltip.style.left = e.clientX + "px"; tooltip.style.top = (e.clientY - 20) + "px";
+    };
+    bar.onmousemove = showTT; bar.onmouseenter = showTT;
+    bar.onmouseleave = () => tooltip.style.opacity = 0;
     if ((i + 1) % step === 0 || i === 0 || i === data.length - 1) {
-      const tick = document.createElement("div");
-      tick.className = "bar-tick";
-      tick.textContent = d.label;
-      bar.appendChild(tick);
+      const t = document.createElement("div"); t.className = "bar-tick"; t.textContent = d.label; bar.appendChild(t);
     }
     frame.appendChild(bar);
   });
 }
 
-/* --- アラート --- */
 function showAlert(msg, type, onConfirm) {
   const modal = document.getElementById("customAlert");
   const btns = document.getElementById("alertBtns");
@@ -427,26 +491,21 @@ function showAlert(msg, type, onConfirm) {
   modal.style.display = "flex";
 }
 
-/* --- 初期化 --- */
 window.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
-  const dInput = document.getElementById("date");
-  if(dInput) dInput.valueAsDate = now;
-  
+  document.getElementById("date").valueAsDate = now;
   ["statYear", "viewYear"].forEach(id => {
     const s = document.getElementById(id);
-    if(s) {
-      for(let y=2024; y<=now.getFullYear(); y++) s.add(new Option(y+"年", y));
-      s.value = now.getFullYear();
-    }
+    for(let y=2024; y<=now.getFullYear(); y++) s.add(new Option(y+"年", y));
+    s.value = now.getFullYear();
   });
   ["statMonth", "viewMonth"].forEach(id => {
     const s = document.getElementById(id);
-    if(s) {
-      for(let m=1; m<=12; m++) s.add(new Option(m+"月", m));
-      s.value = now.getMonth()+1;
-    }
+    for(let m=1; m<=12; m++) s.add(new Option(m+"月", m));
+    s.value = now.getMonth()+1;
   });
+  calculateStreak();
+  updateGoalDisplay();
   loadList();
 });
 </script>
