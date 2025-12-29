@@ -1,108 +1,222 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <title>日記</title>
-</head>
-<body>
-  <h2>日記</h2>
-
-  <!-- 入力 -->
-  <textarea id="diary" rows="10" cols="50"></textarea><br><br>
-  <button onclick="save()">保存</button>
-
-  <hr>
-
-  <!-- 閲覧 -->
-  <h3>月別閲覧</h3>
-  年 <input type="number" id="viewYear">
-  月
-  <select id="viewMonth">
-    <option value="01">01</option><option value="02">02</option>
-    <option value="03">03</option><option value="04">04</option>
-    <option value="05">05</option><option value="06">06</option>
-    <option value="07">07</option><option value="08">08</option>
-    <option value="09">09</option><option value="10">10</option>
-    <option value="11">11</option><option value="12">12</option>
-  </select>
-  <button onclick="view()">表示</button>
-
-  <pre id="viewer" style="white-space:pre-wrap;"></pre>
-
-  <hr>
-
-  <!-- エクスポート -->
-  <h3>エクスポート</h3>
-  年 <input type="number" id="exportYear">
-  <button onclick="exportDiary()">ZIP出力</button>
-
-<script>
-  /* 初期値 */
-  const now = new Date();
-  document.getElementById("viewYear").value = now.getFullYear();
-  document.getElementById("exportYear").value = now.getFullYear();
-
-  /* 自動保存（下書き） */
-  const textarea = document.getElementById("diary");
-  const DRAFT_KEY = "diary_draft";
-  textarea.value = localStorage.getItem(DRAFT_KEY) || "";
-  textarea.addEventListener("input", () => {
-    localStorage.setItem(DRAFT_KEY, textarea.value);
-  });
-
-  /* 保存 */
-  function save() {
-    const text = textarea.value.trim();
-    if (!text) {
-      alert("内容が空です");
-      return;
+  <meta charset="UTF-8">
+  <title>Diary</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 20px;
+      max-width: 800px;
     }
 
-    const y = now.getFullYear();
-    const m = ("0" + (now.getMonth() + 1)).slice(-2);
+    h1, h2 {
+      margin-bottom: 0.3em;
+    }
 
-    google.script.run
-      .withSuccessHandler(function(exists) {
-        if (exists) {
-          if (!confirm("本当に上書きしますか？")) return;
-        }
+    textarea {
+      width: 100%;
+      height: 200px;
+      font-size: 14px;
+    }
 
-        google.script.run
-          .withSuccessHandler(function(msg) {
-            alert(msg);
-            textarea.value = "";
-            localStorage.removeItem(DRAFT_KEY);
-          })
-          .saveDiary(text);
-      })
-      .diaryExists(y, m);
+    button {
+      margin-top: 10px;
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+
+    select, input[type="date"] {
+      font-size: 14px;
+      padding: 4px;
+    }
+
+    ul {
+      padding-left: 1em;
+    }
+
+    li {
+      cursor: pointer;
+      margin-bottom: 6px;
+    }
+
+    .preview {
+      color: #555;
+      font-size: 0.9em;
+    }
+
+    #viewer {
+      white-space: pre-wrap;
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>日記</h1>
+
+  <!-- ===== 入力 ===== -->
+  <label>
+    日付：
+    <input type="date" id="date">
+  </label>
+
+  <br><br>
+
+  <textarea id="diary" placeholder="ここに日記を書く"></textarea>
+
+  <br>
+
+  <button onclick="save()">保存</button>
+
+  <p id="streak">連続記録：- 日</p>
+<p id="message"></p>
+
+<h3>実績</h3>
+<ul id="achievements"></ul>
+
+
+  <hr>
+
+  <!-- ===== 閲覧 ===== -->
+  <h2>月別閲覧</h2>
+
+  <label>
+    年：
+    <select id="year"></select>
+  </label>
+
+  <label>
+    月：
+    <select id="month"></select>
+  </label>
+
+  <button onclick="loadList()">表示</button>
+
+  <ul id="list"></ul>
+
+  <h3>内容</h3>
+  <div id="viewer">(選択してください)</div>
+
+<script>
+/* ===== 初期化 ===== */
+window.onload = () => {
+  const today = new Date();
+  document.getElementById("date").valueAsDate = today;
+
+  const yearSel = document.getElementById("year");
+  const monthSel = document.getElementById("month");
+
+  for (let y = 2024; y <= today.getFullYear(); y++) {
+    yearSel.add(new Option(y, y));
   }
 
-  /* 閲覧 */
-  function view() {
-    const y = document.getElementById("viewYear").value;
-    const m = document.getElementById("viewMonth").value;
-
-    google.script.run
-      .withSuccessHandler(function(text) {
-        document.getElementById("viewer").innerText = text;
-      })
-      .loadDiary(y, m);
+  for (let m = 1; m <= 12; m++) {
+    monthSel.add(new Option(m.toString().padStart(2, "0"), m.toString().padStart(2, "0")));
   }
 
-  /* エクスポート */
-  function exportDiary() {
-    const y = document.getElementById("exportYear").value;
+  yearSel.value = today.getFullYear();
+  monthSel.value = (today.getMonth() + 1).toString().padStart(2, "0");
+};
 
-    google.script.run
-      .withSuccessHandler(function(url) {
-        window.open(url);
-      })
-      .withFailureHandler(function(err) {
-        alert(err.message);
-      })
-      .exportYear(y);
+/* ===== 保存 ===== */
+function save() {
+  const date = document.getElementById("date").value;
+  const text = document.getElementById("diary").value;
+
+  if (!date || !text.trim()) {
+    alert("日付と内容を入力してください。");
+    return;
   }
+
+  google.script.run
+    .withSuccessHandler(res => {
+  if (res.status === "overwrite") {
+    if (!confirm("本当に上書きしますか？")) return;
+  }
+
+  document.getElementById("streak").textContent =
+  `連続記録：${res.streak} 日`;
+
+document.getElementById("message").textContent =
+  getMysteryMessage(res.streak);
+
+updateAchievements(res.streak);
+
+alert("保存しました。");
+
+
+    .saveDiary(date, text);
+}
+
+/* ===== 一覧取得 ===== */
+function loadList() {
+  const y = document.getElementById("year").value;
+  const m = document.getElementById("month").value;
+
+  google.script.run
+    .withSuccessHandler(showList)
+    .getDiaryList(y, m);
+}
+
+function showList(data) {
+  const ul = document.getElementById("list");
+  ul.innerHTML = "";
+
+  if (data.length === 0) {
+    ul.innerHTML = "<li>記録がありません。</li>";
+    return;
+  }
+
+  data.forEach(d => {
+    const li = document.createElement("li");
+    li.innerHTML = `<strong>${d.name}</strong><div class="preview">${d.preview}...</div>`;
+    li.onclick = () => loadContent(d.name);
+    ul.appendChild(li);
+  });
+}
+
+/* ===== 内容表示 ===== */
+function loadContent(fileName) {
+  const y = document.getElementById("year").value;
+  const m = document.getElementById("month").value;
+
+  google.script.run
+    .withSuccessHandler(text => {
+      document.getElementById("viewer").textContent = text;
+    })
+    .getDiaryContent(y, m, fileName);
+}
+
+function getMysteryMessage(streak) {
+  if (streak === 1) return "また一つ、記録が増えた。";
+  if (streak === 3) return "気づけば三日連続。偶然だろうか。";
+  if (streak === 7) return "一週間分の記録が揃った。何かが見えてきそうだ。";
+  if (streak === 14) return "二週間。書いているのは本当に“今の自分”か？";
+  if (streak >= 30) return "この量の記録を、あとで読む勇気はあるだろうか。";
+  return "";
+}
+
+function updateAchievements(streak) {
+  const ul = document.getElementById("achievements");
+  ul.innerHTML = "";
+
+  const achievements = [];
+  if (streak >= 3) achievements.push("三日坊主、回避");
+  if (streak >= 7) achievements.push("一週間の観測者");
+  if (streak >= 30) achievements.push("記録者");
+
+  achievements.forEach(a => {
+    const li = document.createElement("li");
+    li.textContent = `実績解除：${a}`;
+    ul.appendChild(li);
+  });
+}
+
+
 </script>
+
 </body>
 </html>

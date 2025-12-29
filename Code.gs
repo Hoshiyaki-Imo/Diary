@@ -1,93 +1,125 @@
+/* ===== 設定 ===== */
+const ROOT_FOLDER_NAME = "Diary";
+
+/* ===== Webアプリ入口 ===== */
 function doGet() {
-  const email = Session.getActiveUser().getEmail();
-  if (!email) {
-    return HtmlService.createHtmlOutput("ログインしてください");
-  }
-
   return HtmlService.createHtmlOutputFromFile("index")
-    .setTitle("日記アプリ");
+    .setTitle("Diary");
 }
 
-/* ===== 保存 ===== */
-function saveDiary(text) {
-  if (!Session.getActiveUser().getEmail()) {
-    throw new Error("Unauthorized");
+/* ===== 日記保存 ===== */
+function saveDiary(dateStr, text) {
+  const date = new Date(dateStr);
+  const year = date.getFullYear().toString();
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const day = dateStr; // YYYY-MM-DD
+
+  const root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+  const yearFolder = getOrCreateFolder_(root, year);
+  const monthFolder = getOrCreateFolder_(yearFolder, month);
+
+  const fileName = `${day}.txt`;
+  const files = monthFolder.getFilesByName(fileName);
+
+  if (files.hasNext()) {
+    // 上書き
+    const file = files.next();
+    file.setContent(text);
+    return { status: "overwrite" };
+  } else {
+    // 新規作成
+    monthFolder.createFile(fileName, text, MimeType.PLAIN_TEXT);
+    const streakInfo = getStreakInfo_(dateStr);
+    return { status: "new", streak: streakInfo.streak };
+
   }
-
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = ("0" + (now.getMonth() + 1)).slice(-2);
-  const filename = `Diary_${year}${month}.txt`;
-
-  const diaryFolder = getOrCreateFolder_("Diary");
-  const yearFolder = getOrCreateFolder_(String(year), diaryFolder);
-  const file = getOrCreateFile_(filename, yearFolder);
-
-  const entry =
-    `【${now.toLocaleString()}】\n` +
-    text + "\n" +
-    "--------------------\n";
-
-  const old = file.getBlob().getDataAsString("UTF-8");
-  file.setContent(old + entry);
-
-  return "保存しました";
 }
 
-/* ===== 存在チェック ===== */
-function diaryExists(year, month) {
-  const filename = `Diary_${year}${month}.txt`;
-  const diaryFolder = getOrCreateFolder_("Diary");
-  const yearFolder = getOrCreateFolder_(String(year), diaryFolder);
-  const files = yearFolder.getFilesByName(filename);
-  return files.hasNext();
-}
+/* ===== 月別一覧取得 ===== */
+function getDiaryList(year, month) {
+  const root = getRootFolder_();
+  if (!root) return [];
 
-/* ===== 読み込み ===== */
-function loadDiary(year, month) {
-  const filename = `Diary_${year}${month}.txt`;
-  const diaryFolder = getOrCreateFolder_("Diary");
-  const yearFolder = getOrCreateFolder_(String(year), diaryFolder);
-  const files = yearFolder.getFilesByName(filename);
+  const yearFolder = getSubFolder_(root, year);
+  if (!yearFolder) return [];
 
-  if (!files.hasNext()) {
-    return "この月の日記は存在しません";
-  }
-  return files.next().getBlob().getDataAsString("UTF-8");
-}
+  const monthFolder = getSubFolder_(yearFolder, month);
+  if (!monthFolder) return [];
 
-/* ===== エクスポート ===== */
-function exportYear(year) {
-  const diaryFolder = getOrCreateFolder_("Diary");
-  const yearFolder = getOrCreateFolder_(String(year), diaryFolder);
+  const files = monthFolder.getFiles();
+  const result = [];
 
-  const blobs = [];
-  const files = yearFolder.getFiles();
   while (files.hasNext()) {
-    blobs.push(files.next().getBlob());
+    const file = files.next();
+    const content = file.getBlob().getDataAsString();
+    result.push({
+      name: file.getName(),
+      preview: content.substring(0, 40)
+    });
   }
 
-  if (blobs.length === 0) {
-    throw new Error("その年の日記はありません");
+  // 日付順に並び替え
+  result.sort((a, b) => a.name.localeCompare(b.name));
+  return result;
+}
+
+/* ===== 内容取得 ===== */
+function getDiaryContent(year, month, fileName) {
+  const root = getRootFolder_();
+  if (!root) return "";
+
+  const yearFolder = getSubFolder_(root, year);
+  if (!yearFolder) return "";
+
+  const monthFolder = getSubFolder_(yearFolder, month);
+  if (!monthFolder) return "";
+
+  const files = monthFolder.getFilesByName(fileName);
+  if (!files.hasNext()) return "";
+
+  return files.next().getBlob().getDataAsString();
+}
+
+/* ===== フォルダ取得／作成ユーティリティ ===== */
+function getRootFolder_() {
+  const folders = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
+  return folders.hasNext() ? folders.next() : null;
+}
+
+function getOrCreateFolder_(parent, name) {
+  const folders = parent.getFoldersByName(name);
+  return folders.hasNext() ? folders.next() : parent.createFolder(name);
+}
+
+function getSubFolder_(parent, name) {
+  const folders = parent.getFoldersByName(name);
+  return folders.hasNext() ? folders.next() : null;
+}
+
+function getStreakInfo_(dateStr) {
+  const root = getRootFolder_();
+  if (!root) return { streak: 1 };
+
+  let streak = 0;
+  let current = new Date(dateStr);
+
+  while (true) {
+    const y = current.getFullYear().toString();
+    const m = (current.getMonth() + 1).toString().padStart(2, "0");
+    const d = current.toISOString().slice(0, 10);
+
+    const yearFolder = getSubFolder_(root, y);
+    if (!yearFolder) break;
+
+    const monthFolder = getSubFolder_(yearFolder, m);
+    if (!monthFolder) break;
+
+    const files = monthFolder.getFilesByName(`${d}.txt`);
+    if (!files.hasNext()) break;
+
+    streak++;
+    current.setDate(current.getDate() - 1);
   }
 
-  const zip = Utilities.zip(blobs, `Diary_${year}.zip`);
-  const file = DriveApp.createFile(zip);
-  return file.getDownloadUrl();
-}
-
-/* ===== 補助関数 ===== */
-function getOrCreateFolder_(name, parent = null) {
-  const folders = parent
-    ? parent.getFoldersByName(name)
-    : DriveApp.getFoldersByName(name);
-
-  if (folders.hasNext()) return folders.next();
-  return parent ? parent.createFolder(name) : DriveApp.createFolder(name);
-}
-
-function getOrCreateFile_(name, folder) {
-  const files = folder.getFilesByName(name);
-  if (files.hasNext()) return files.next();
-  return folder.createFile(name, "", MimeType.PLAIN_TEXT);
+  return { streak };
 }
