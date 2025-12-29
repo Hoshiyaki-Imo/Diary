@@ -133,23 +133,23 @@ function save() {
 
   google.script.run
     .withSuccessHandler(res => {
-  if (res.status === "overwrite") {
-    if (!confirm("本当に上書きしますか？")) return;
-  }
+      if (res.status === "overwrite") {
+        if (!confirm("本当に上書きしますか？")) return;
+      }
 
-  document.getElementById("streak").textContent =
-  `連続記録：${res.streak} 日`;
+      document.getElementById("streak").textContent =
+        `連続記録：${res.streak} 日`;
 
-document.getElementById("message").textContent =
-  getMysteryMessage(res.streak);
+      document.getElementById("message").textContent =
+        getMysteryMessage(res.streak);
 
-updateAchievements(res.streak);
+      updateAchievements(res.streak);
 
-alert("保存しました。");
-
-
+      alert("保存しました。");
+    })
     .saveDiary(date, text);
 }
+
 
 /* ===== 一覧取得 ===== */
 function loadList() {
