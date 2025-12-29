@@ -159,6 +159,35 @@
   .cal-day { aspect-ratio: 1; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; background: var(--border); cursor: pointer; transition: 0.2s; }
   .cal-day.has-data { background: var(--primary); color: #000; font-weight: bold; }
   .tooltip { position: fixed; background: #333; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; pointer-events: none; opacity: 0; z-index: 9500; }
+  /* 年間目標を最上部に固定する設定 */
+#yearlyGoalContainer {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: var(--surface);
+  border-bottom: 2px solid var(--primary);
+  padding: 12px;
+  text-align: center;
+  margin-bottom: 20px;
+  backdrop-filter: blur(10px);
+}
+
+/* 画像表示サイズを適正化 */
+#imagePreview, #viewImage { 
+  max-width: 100%; 
+  max-height: 300px; 
+  object-fit: contain; 
+  border-radius: 12px;
+  margin-top: 10px;
+}
+
+/* 未設定時の警告スタイル */
+.goal-warning {
+  color: #ff5252;
+  font-weight: bold;
+  animation: blink 1.5s infinite;
+}
+@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
   </style>
 </head>
 <body data-theme="dark">
@@ -177,6 +206,11 @@
 <div class="container">
   <div class="header">
     <h1 id="app-title">DIARY</h1>
+    <div id="yearlyGoalContainer">
+  <div id="yearlyGoalText" style="font-size: 0.9rem; font-weight: bold;">
+    <span class="goal-warning">【重要】年間目標が未設定です。設定してください。</span>
+  </div>
+</div>
     <div class="header-btns">
       <div id="moon-phase" style="width: 55px; height: 55px; border-radius: 50%; background: #333; position: relative; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
         <div class="moon-light" id="moon-light-layer" style="position: absolute; height: 100%; background: #fffde7; transition: 0.5s;"></div>
@@ -650,47 +684,84 @@ function fetchLastWeekStats() {
 
 function handleImage(input) {
   if (input.files && input.files[0]) {
-    toggleLoader(true, 'read', 0, "PROCESSING...");
+    const file = input.files[0];
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const canvasImg = document.createElement('canvas');
-        const MAX = 800; let w = img.width, h = img.height;
-        if(w > MAX) { h *= MAX/w; w = MAX; }
-        canvasImg.width = w; canvasImg.height = h;
-        canvasImg.getContext('2d').drawImage(img, 0, 0, w, h);
-        selectedImageData = canvasImg.toDataURL('image/jpeg', 0.7);
-        document.getElementById("imagePreview").src = selectedImageData;
-        document.getElementById("imagePreviewContainer").style.display = "block";
-        toggleLoader(false);
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxSide = 1024; // リサイズの上限
+        
+        if (width > maxSide || height > maxSide) {
+          if (width > height) {
+            height *= maxSide / width;
+            width = maxSide;
+          } else {
+            width *= maxSide / height;
+            height = maxSide;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // 圧縮されたBase64データを取得
+        const resizedData = canvas.toDataURL('image/jpeg', 0.8);
+        document.getElementById('imagePreview').src = resizedData;
+        document.getElementById('imagePreviewContainer').style.display = 'block';
       };
       img.src = e.target.result;
     };
-    reader.readAsDataURL(input.files[0]);
+    reader.readAsDataURL(file);
   }
 }
 
 function autoLoadEntry() {
-  const dateStr = document.getElementById("date").value;
-  if (!dateStr) return;
-  toggleLoader(true, 'read', 0, "LOADING...");
-  google.script.run.withSuccessHandler(json => {
-    toggleLoader(false);
-    if (json) {
-      document.getElementById("emotion").value = json.emotion || "normal";
-      document.getElementById("studyTime").value = json.studyTime || 0;
-      document.getElementById("diary").value = json.content || "";
-      applyEmotionColor(json.emotion);
-      if (json.image) {
-        selectedImageData = json.image; document.getElementById("imagePreview").src = json.image;
-        document.getElementById("imagePreviewContainer").style.display = "block";
-      } else { selectedImageData=null; document.getElementById("imagePreviewContainer").style.display = "none"; }
+  const dateVal = document.getElementById("date").value;
+  if (!dateVal) return;
+  const dateParts = dateVal.split("-");
+
+  // 年間目標の取得と表示更新
+  google.script.run.withSuccessHandler((goal) => {
+    const display = document.getElementById("yearlyGoalText");
+    if (goal && goal.content) {
+      display.innerHTML = `<span style="color:var(--primary);">【2025年目標】</span> ${goal.content}`;
+      display.classList.remove("goal-warning");
     } else {
-      document.getElementById("diary").value = ""; document.getElementById("studyTime").value = 0;
-      selectedImageData=null; document.getElementById("imagePreviewContainer").style.display = "none";
+      display.innerHTML = `<span class="goal-warning">【重要】年間目標が未設定です。設定から優先的に入力してください。</span>`;
+      display.classList.add("goal-warning");
     }
-  }).getDiaryContent(new Date(dateStr).getFullYear(), new Date(dateStr).getMonth() + 1, dateStr);
+  }).getYearlyGoal();
+
+  // 既存の日記読み込みロジック
+  google.script.run.withSuccessHandler((data) => {
+    const diary = document.getElementById("diary");
+    const emotion = document.getElementById("emotion");
+    const study = document.getElementById("studyTime");
+    const preview = document.getElementById("imagePreview");
+    const container = document.getElementById("imagePreviewContainer");
+    
+    if (data) {
+      diary.value = data.content || "";
+      emotion.value = data.emotion || "normal";
+      study.value = data.studyTime || 0;
+      if (data.image) {
+        preview.src = data.image;
+        container.style.display = "block";
+      } else {
+        container.style.display = "none";
+      }
+    } else {
+      diary.value = "";
+      emotion.value = "normal";
+      study.value = 0;
+      container.style.display = "none";
+    }
+  }).getDiaryContent(dateParts[0], parseInt(dateParts[1]), dateVal);
 }
 
 function calculateStreak() {
