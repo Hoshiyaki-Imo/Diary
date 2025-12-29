@@ -7,17 +7,18 @@ function doGet() {
     .addMetaTag("viewport", "width=device-width, initial-scale=1.0");
 }
 
-/* フォルダ操作補助 */
+/* ===== フォルダ操作補助 ===== */
 function getRootFolder_() {
   const folders = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
   return folders.hasNext() ? folders.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
 }
+
 function getSubFolder_(parent, name) {
   const folders = parent.getFoldersByName(name);
   return folders.hasNext() ? folders.next() : parent.createFolder(name);
 }
 
-/* 保存機能 (JSON) */
+/* ===== 保存機能（保存時刻の秒単位記録） ===== */
 function saveDiary(dateStr, text, emotion, studyTime) {
   const date = new Date(dateStr);
   const year = date.getFullYear().toString();
@@ -28,12 +29,17 @@ function saveDiary(dateStr, text, emotion, studyTime) {
   const yearFolder = getSubFolder_(root, year);
   const monthFolder = getSubFolder_(yearFolder, month);
 
+  // 現在時刻を詳細に取得 (HH:mm:ss形式)
+  const now = new Date();
+  const timestamp = Utilities.formatDate(now, "JST", "HH:mm:ss");
+
   const data = {
     date: dateStr,
+    saveTime: timestamp, // 保存・更新時刻
     emotion: emotion,
     studyTime: parseInt(studyTime) || 0,
     content: text,
-    updatedAt: new Date().toISOString()
+    updatedAt: now.toISOString()
   };
 
   const files = monthFolder.getFilesByName(fileName);
@@ -45,7 +51,7 @@ function saveDiary(dateStr, text, emotion, studyTime) {
   return { status: "ok" };
 }
 
-/* 集計機能 (日別・月別) */
+/* ===== 集計機能 (日別・月別) ===== */
 function getDetailedStudyStats(year, month) {
   const root = getRootFolder_();
   const yf = getSubFolder_(root, year.toString());
@@ -87,10 +93,10 @@ function getDetailedStudyStats(year, month) {
     monthlyData.push({ month: m, time: mTotal });
   }
 
-  return { daily: dailyArr = dailyData, monthly: monthlyData, targetLabel: `${year}年${month}月` };
+  return { daily: dailyData, monthly: monthlyData, targetLabel: `${year}年${month}月` };
 }
 
-/* リスト取得 */
+/* ===== 履歴リスト取得（更新時間saveTimeを含む） ===== */
 function getDiaryList(year, month) {
   const root = getRootFolder_();
   const yf = getSubFolder_(root, year.toString());
@@ -101,16 +107,42 @@ function getDiaryList(year, month) {
     const file = files.next();
     if (file.getName().endsWith(".json")) {
       const json = JSON.parse(file.getBlob().getDataAsString());
-      list.push({ name: file.getName().replace(".json",""), preview: json.content.substring(0, 20), emotion: json.emotion });
+      list.push({ 
+        name: file.getName().replace(".json",""), 
+        preview: json.content.substring(0, 20), 
+        emotion: json.emotion,
+        saveTime: json.saveTime || "" // 更新時間
+      });
     }
   }
+  // 日付の降順（新しい順）でソート
   return list.sort((a, b) => b.name.localeCompare(a.name));
 }
 
+/* ===== 履歴詳細取得 ===== */
 function getDiaryContent(year, month, name) {
   const root = getRootFolder_();
   const folder = getSubFolder_(getSubFolder_(root, year.toString()), month.toString().padStart(2, "0"));
   const file = folder.getFilesByName(name + ".json").next();
   const json = JSON.parse(file.getBlob().getDataAsString());
-  return `【気分】${json.emotion}\n【勉強】${json.studyTime}分\n\n${json.content}`;
+  
+  const timeInfo = json.saveTime ? `（最終更新：${json.saveTime}）` : "";
+  return `【気分】${json.emotion}${timeInfo}\n【勉強】${json.studyTime}分\n\n${json.content}`;
+}
+
+/* ===== 既存の関数は維持しつつ、以下を追加・修正 ===== */
+
+// 削除機能：指定されたファイルをゴミ箱へ移動（または完全削除）
+function deleteDiary(year, month, name) {
+  const root = getRootFolder_();
+  const yearFolder = getSubFolder_(root, year.toString());
+  const monthFolder = getSubFolder_(yearFolder, month.toString().padStart(2, "0"));
+  
+  const files = monthFolder.getFilesByName(name + ".json");
+  if (files.hasNext()) {
+    const file = files.next();
+    file.setTrashed(true); // 安全のためゴミ箱へ移動
+    return { status: "ok" };
+  }
+  throw new Error("ファイルが見つかりませんでした");
 }
