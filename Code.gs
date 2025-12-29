@@ -63,3 +63,21 @@ function getOrCreateFile_(name, folder) {
 
   return folder.createFile(name, "", MimeType.PLAIN_TEXT);
 }
+
+function loadDiary() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = ("0" + (now.getMonth() + 1)).slice(-2);
+  const filename = `Diary_${year}${month}.txt`;
+
+  const diaryFolder = getOrCreateFolder_("Diary");
+  const yearFolder = getOrCreateFolder_(String(year), diaryFolder);
+  const files = yearFolder.getFilesByName(filename);
+
+  if (!files.hasNext()) {
+    return "まだ今月の日記はありません";
+  }
+
+  const file = files.next();
+  return file.getBlob().getDataAsString("UTF-8");
+}

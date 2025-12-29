@@ -1,11 +1,53 @@
 <!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <h1 class="title">干し焼き芋の日記</h1>
-</body>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>日記</title>
+  </head>
+  <body>
+    <h2>日記</h2>
+
+    <textarea id="diary" rows="10" cols="50"></textarea><br><br>
+
+    <button onclick="save()">保存</button>
+    <button onclick="view()">今月の内容を見る</button>
+
+    <pre id="viewer" style="margin-top:20px; white-space:pre-wrap;"></pre>
+
+    <script>
+      function save() {
+        const text = document.getElementById("diary").value.trim();
+        if (!text) {
+          alert("何も書いてないで");
+          return;
+        }
+
+        // ★ 上書き確認
+        if (!confirm("今月の日記に追記するけどええ？")) {
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(function(msg) {
+            alert(msg); // ★ 保存完了アラート
+            document.getElementById("diary").value = "";
+          })
+          .withFailureHandler(function(err) {
+            alert(err.message);
+          })
+          .saveDiary(text);
+      }
+
+      function view() {
+        google.script.run
+          .withSuccessHandler(function(content) {
+            document.getElementById("viewer").innerText = content;
+          })
+          .withFailureHandler(function(err) {
+            alert(err.message);
+          })
+          .loadDiary();
+      }
+    </script>
+  </body>
 </html>
