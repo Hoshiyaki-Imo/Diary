@@ -8,7 +8,8 @@ function doGet() {
 }
 
 /* ===== 日記保存（感情・振り返り対応） ===== */
-function saveDiary(dateStr, text, emotion) {
+/* ===== 日記保存（勉強時間対応） ===== */
+function saveDiary(dateStr, text, emotion, studyTime) {
   const date = new Date(dateStr);
   const year = date.getFullYear().toString();
   const month = (date.getMonth() + 1).toString().padStart(2, "0");
@@ -18,12 +19,11 @@ function saveDiary(dateStr, text, emotion) {
   const yearFolder = getOrCreateFolder_(root, year);
   const monthFolder = getOrCreateFolder_(yearFolder, month);
 
-  // 1行目に感情、2行目以降に本文を保存
-  const fullContent = `【感情：${emotion}】\n${text}`;
+  // 1行目に感情と勉強時間を記録
+  const fullContent = `【感情：${emotion}】【勉強：${studyTime}分】\n${text}`;
 
   const files = monthFolder.getFilesByName(fileName);
   let isNewFile = !files.hasNext();
-
   if (!isNewFile) {
     files.next().setContent(fullContent);
   } else {
@@ -45,6 +45,28 @@ function saveDiary(dateStr, text, emotion) {
     monthStats: stats,
     pastDiary: pastDiary 
   };
+}
+
+/* グラフ用に今月の勉強時間を集計する（簡易版） */
+function getStudyStats(year, month) {
+  const root = getRootFolder_();
+  const mf = getSubFolder_(getSubFolder_(root, year), month);
+  if (!mf) return [];
+
+  const files = mf.getFiles();
+  const data = [];
+  while (files.hasNext()) {
+    const file = files.next();
+    const content = file.getBlob().getDataAsString();
+    const match = content.match(/【勉強：(\d+)分】/);
+    if (match) {
+      data.push({
+        day: parseInt(file.getName().slice(-6, -4)), // 日付の数字だけ抽出
+        time: parseInt(match[1])
+      });
+    }
+  }
+  return data.sort((a, b) => a.day - b.day);
 }
 
 /* 特定の日付から日記を検索するヘルパー */
