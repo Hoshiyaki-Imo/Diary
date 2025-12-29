@@ -4,60 +4,25 @@
   <meta charset="UTF-8">
   <title>Diary</title>
   <style>
-    body {
-      font-family: system-ui, sans-serif;
-      margin: 20px;
-      max-width: 800px;
-    }
-
-    h1, h2 {
-      margin-bottom: 0.3em;
-    }
-
-    textarea {
-      width: 100%;
-      height: 200px;
-      font-size: 14px;
-    }
-
-    button {
-      margin-top: 10px;
-      padding: 6px 12px;
-      font-size: 14px;
-    }
-
-    select, input[type="date"] {
-      font-size: 14px;
-      padding: 4px;
-    }
-
-    ul {
-      padding-left: 1em;
-    }
-
-    li {
-      cursor: pointer;
-      margin-bottom: 6px;
-    }
-
-    .preview {
-      color: #555;
-      font-size: 0.9em;
-    }
-
-    #viewer {
-      white-space: pre-wrap;
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-top: 10px;
-    }
+    body { font-family: system-ui, sans-serif; margin: 20px; max-width: 800px; }
+    h1, h2 { margin-bottom: 0.3em; }
+    textarea { width: 100%; height: 200px; font-size: 14px; box-sizing: border-box; }
+    button { margin-top: 10px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
+    select, input[type="date"] { font-size: 14px; padding: 4px; }
+    ul { padding-left: 1em; }
+    li { cursor: pointer; margin-bottom: 6px; }
+    li:hover { text-decoration: underline; color: #0056b3; }
+    .preview { color: #555; font-size: 0.9em; }
+    #viewer { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; margin-top: 10px; min-height: 50px; background: #fafafa; }
+    
+    /* プログレスバーのアニメーション */
+    #monthlyBar { transition: width 0.5s ease-in-out; }
   </style>
 </head>
 <body>
 
   <h1>日記</h1>
 
-  <!-- ===== 入力 ===== -->
   <label>
     日付：
     <input type="date" id="date">
@@ -69,25 +34,24 @@
 
   <br>
 
-  <button onclick="save()">保存</button>
+  <button onclick="save()" id="saveBtn">保存</button>
+  
   <div id="monthlyStats" style="margin-top:16px;">
-  <strong>今月の記録状況</strong>
-  <div style="background:#eee; width:100%; height:20px; margin-top:6px;">
-    <div id="monthlyBar" style="background:#4caf50; height:100%; width:0%;"></div>
+    <strong>選択した月の記録状況</strong>
+    <div style="background:#eee; width:100%; height:20px; margin-top:6px; border-radius:4px; overflow:hidden;">
+      <div id="monthlyBar" style="background:#4caf50; height:100%; width:0%;"></div>
+    </div>
+    <div id="monthlyText" style="margin-top:4px; font-size:0.9em;"></div>
   </div>
-  <div id="monthlyText" style="margin-top:4px; font-size:0.9em;"></div>
-</div>
 
-  <p id="streak">連続記録：- 日</p>
-<p id="message"></p>
+  <p id="streak" style="font-weight:bold; color:#d32f2f;">連続記録：計算中...</p>
+  <p id="message"></p>
 
-<h3>実績</h3>
-<ul id="achievements"></ul>
-
+  <h3>実績</h3>
+  <ul id="achievements"></ul>
 
   <hr>
 
-  <!-- ===== 閲覧 ===== -->
   <h2>月別閲覧</h2>
 
   <label>
@@ -105,7 +69,7 @@
   <ul id="list"></ul>
 
   <h3>内容</h3>
-  <div id="viewer">(選択してください)</div>
+  <div id="viewer">(リストから選択してください)</div>
 
 <script>
 /* ===== 初期化 ===== */
@@ -116,56 +80,115 @@ window.onload = () => {
   const yearSel = document.getElementById("year");
   const monthSel = document.getElementById("month");
 
+  // 年の選択肢生成
   for (let y = 2024; y <= today.getFullYear(); y++) {
     yearSel.add(new Option(y, y));
   }
-
+  // 月の選択肢生成
   for (let m = 1; m <= 12; m++) {
-    monthSel.add(new Option(m.toString().padStart(2, "0"), m.toString().padStart(2, "0")));
+    const mStr = m.toString().padStart(2, "0");
+    monthSel.add(new Option(mStr, mStr));
   }
 
+  // 初期値設定
   yearSel.value = today.getFullYear();
   monthSel.value = (today.getMonth() + 1).toString().padStart(2, "0");
 
-  updateMonthlyStats();
+  // 初期ロード：統計とリスト
+  loadMonthlyStats(); 
+  updateStreakDisplay(0); // 仮表示
+  
+  // 日付が変わったら、その月の統計バーを更新するようにする
+  document.getElementById("date").addEventListener("change", loadMonthlyStatsFromDateInput);
 };
 
 /* ===== 保存 ===== */
+/* ===== 保存（HTML側） ===== */
 function save() {
-  const date = document.getElementById("date").value;
-  const text = document.getElementById("diary").value;
+  const dateInput = document.getElementById("date");
+  const textInput = document.getElementById("diary");
+  const dateStr = dateInput.value;
+  const text = textInput.value;
 
-  if (!date || !text.trim()) {
+  if (!dateStr || !text.trim()) {
     alert("日付と内容を入力してください。");
     return;
   }
 
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  btn.textContent = "保存中...";
+
   google.script.run
     .withSuccessHandler(res => {
-      if (res.status === "overwrite") {
-        if (!confirm("本当に上書きしますか？")) return;
+      btn.disabled = false;
+      btn.textContent = "保存";
+
+      // 1. 連続記録の表示を更新
+      updateStreakDisplay(res.streak);
+      updateAchievements(res.streak);
+      
+      // 2. 統計バー（グラフ）の更新
+      if (res.monthStats) {
+        renderProgressBar(res.monthStats.count, res.monthStats.daysInMonth);
       }
 
-      document.getElementById("streak").textContent =
-        `連続記録：${res.streak} 日`;
-
-      document.getElementById("message").textContent =
-        getMysteryMessage(res.streak);
-
-      updateAchievements(res.streak);
-
-      alert("保存しました");
-      updateMonthlyStats();
-
+      // 3. 完了メッセージ（上書きか新規か教える）
+      if (res.status === "new") {
+        alert("新しく日記を保存しました！");
+      } else {
+        alert("日記を更新（上書き）しました。");
+      }
     })
-    .saveDiary(date, text);
+    .saveDiary(dateStr, text);
 }
 
+/* ===== 統計表示更新 (日付入力欄が変わった時用) ===== */
+function loadMonthlyStatsFromDateInput() {
+  const dateStr = document.getElementById("date").value;
+  if(!dateStr) return;
+  const date = new Date(dateStr);
+  const y = date.getFullYear().toString();
+  const m = (date.getMonth() + 1).toString().padStart(2, "0");
+  
+  // サーバーに問い合わせ
+  google.script.run
+    .withSuccessHandler(data => renderProgressBar(data.count, data.daysInMonth))
+    .getMonthlyStats(y, m);
+}
+
+/* ===== 統計表示更新 (初期ロード用) ===== */
+function loadMonthlyStats() {
+  // 現在の日付欄の年月で取得
+  loadMonthlyStatsFromDateInput();
+  
+  // 連続日数の初期取得（保存しなくても表示されるように）
+  google.script.run
+    .withSuccessHandler(res => {
+        updateStreakDisplay(res.streak);
+        updateAchievements(res.streak);
+    })
+    .getStreakInfo_(""); // 引数空文字は無視される設計にしてあるが、関数シグネチャ上必要なら修正
+}
+
+function renderProgressBar(count, daysInMonth) {
+  const percent = Math.min(100, Math.floor((count / daysInMonth) * 100));
+  document.getElementById("monthlyBar").style.width = percent + "%";
+  document.getElementById("monthlyText").textContent = `${count} / ${daysInMonth} 日`;
+}
+
+function updateStreakDisplay(streak) {
+  const el = document.getElementById("streak");
+  el.textContent = `現在の連続記録：${streak} 日`;
+  document.getElementById("message").textContent = getMysteryMessage(streak);
+}
 
 /* ===== 一覧取得 ===== */
 function loadList() {
   const y = document.getElementById("year").value;
   const m = document.getElementById("month").value;
+  const ul = document.getElementById("list");
+  ul.innerHTML = "<li>読み込み中...</li>";
 
   google.script.run
     .withSuccessHandler(showList)
@@ -193,6 +216,7 @@ function showList(data) {
 function loadContent(fileName) {
   const y = document.getElementById("year").value;
   const m = document.getElementById("month").value;
+  document.getElementById("viewer").textContent = "読み込み中...";
 
   google.script.run
     .withSuccessHandler(text => {
@@ -202,18 +226,18 @@ function loadContent(fileName) {
 }
 
 function getMysteryMessage(streak) {
+  if (streak === 0) return "まずは一日。";
   if (streak === 1) return "また一つ、記録が増えた。";
   if (streak === 3) return "気づけば三日連続。偶然だろうか。";
   if (streak === 7) return "一週間分の記録が揃った。何かが見えてきそうだ。";
   if (streak === 14) return "二週間。書いているのは本当に“今の自分”か？";
   if (streak >= 30) return "この量の記録を、あとで読む勇気はあるだろうか。";
-  return "";
+  return "記録は続く...";
 }
 
 function updateAchievements(streak) {
   const ul = document.getElementById("achievements");
   ul.innerHTML = "";
-
   const achievements = [];
   if (streak >= 3) achievements.push("三日坊主、回避");
   if (streak >= 7) achievements.push("一週間の観測者");
@@ -225,17 +249,6 @@ function updateAchievements(streak) {
     ul.appendChild(li);
   });
 }
-
-function updateMonthlyStats() {
-  google.script.run.withSuccessHandler(function(data) {
-    const percent = Math.min(100, Math.floor((data.count / data.daysInMonth) * 100));
-    document.getElementById("monthlyBar").style.width = percent + "%";
-    document.getElementById("monthlyText").textContent =
-      `${data.count} / ${data.daysInMonth} 日`;
-  }).getMonthlyStats();
-}
-
-
 </script>
 
 </body>

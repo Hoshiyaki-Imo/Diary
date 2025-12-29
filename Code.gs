@@ -7,58 +7,68 @@ function doGet() {
     .setTitle("Diary");
 }
 
-/* ===== 日記保存 ===== */
+/* ===== 日記保存（統計ロジック修正版） ===== */
 function saveDiary(dateStr, text) {
   const date = new Date(dateStr);
   const year = date.getFullYear().toString();
   const month = (date.getMonth() + 1).toString().padStart(2, "0");
-  const day = dateStr; // YYYY-MM-DD
+  const fileName = `${dateStr}.txt`;
 
   const root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
   const yearFolder = getOrCreateFolder_(root, year);
   const monthFolder = getOrCreateFolder_(yearFolder, month);
 
-  const fileName = `${day}.txt`;
   const files = monthFolder.getFilesByName(fileName);
+  let isNewFile = !files.hasNext(); // ファイルが存在しなければ新規
 
-  if (files.hasNext()) {
-    // 上書き
+  if (!isNewFile) {
+    // すでにファイルがある場合は内容を更新（上書き）
     const file = files.next();
     file.setContent(text);
-    return { status: "overwrite" };
   } else {
-    // 新規作成
+    // ない場合は新しく作成
     monthFolder.createFile(fileName, text, MimeType.PLAIN_TEXT);
-    const streakInfo = getStreakInfo_(dateStr);
-    return { status: "new", streak: streakInfo.streak };
-
   }
+
+  // 最新の連続記録を計算
+  const streakInfo = getCurrentStreak_();
+
+  // その月の最新の統計（ファイル数）を取得
+  const stats = getMonthlyStatsForDate_(year, month);
+  
+  // 【ここが重要】ドライブの反映ラグ対策
+  // 新規作成した直後は countFilesInFolder_ がまだ 0 を返すことがあるため、
+  // 新規保存(isNewFile=true)なら、最低でも 1 以上のカウントを保証して返します。
+  if (isNewFile && stats.count === 0) {
+    stats.count = 1;
+  }
+
+  return { 
+    status: isNewFile ? "new" : "overwrite", 
+    streak: streakInfo.streak,
+    monthStats: stats 
+  };
 }
 
 /* ===== 月別一覧取得 ===== */
 function getDiaryList(year, month) {
   const root = getRootFolder_();
   if (!root) return [];
-
   const yearFolder = getSubFolder_(root, year);
   if (!yearFolder) return [];
-
   const monthFolder = getSubFolder_(yearFolder, month);
   if (!monthFolder) return [];
 
   const files = monthFolder.getFiles();
   const result = [];
-
   while (files.hasNext()) {
     const file = files.next();
-    const content = file.getBlob().getDataAsString();
     result.push({
       name: file.getName(),
-      preview: content.substring(0, 40)
+      preview: file.getBlob().getDataAsString().substring(0, 40)
     });
   }
-
-  // 日付順に並び替え
+  // 日付順
   result.sort((a, b) => a.name.localeCompare(b.name));
   return result;
 }
@@ -67,91 +77,114 @@ function getDiaryList(year, month) {
 function getDiaryContent(year, month, fileName) {
   const root = getRootFolder_();
   if (!root) return "";
-
   const yearFolder = getSubFolder_(root, year);
   if (!yearFolder) return "";
-
   const monthFolder = getSubFolder_(yearFolder, month);
   if (!monthFolder) return "";
-
   const files = monthFolder.getFilesByName(fileName);
-  if (!files.hasNext()) return "";
-
-  return files.next().getBlob().getDataAsString();
+  return files.hasNext() ? files.next().getBlob().getDataAsString() : "";
 }
 
-/* ===== フォルダ取得／作成ユーティリティ ===== */
+/* HTML側から呼び出される統計取得関数 */
+function getMonthlyStats(year, month) {
+  if (!year || !month) {
+    const now = new Date();
+    year = String(now.getFullYear());
+    month = String(now.getMonth() + 1).padStart(2, "0");
+  }
+  return getMonthlyStatsForDate_(year, month);
+}
+
+/* 指定月の統計計算 */
+function getMonthlyStatsForDate_(year, month) {
+  const daysInMonth = new Date(Number(year), Number(month), 0).getDate();
+  const root = getRootFolder_();
+  if (!root) return { count: 0, daysInMonth: daysInMonth };
+  
+  const yearFolder = getSubFolder_(root, year);
+  if (!yearFolder) return { count: 0, daysInMonth: daysInMonth };
+  
+  const monthFolder = getSubFolder_(yearFolder, month);
+  if (!monthFolder) return { count: 0, daysInMonth: daysInMonth };
+
+  // フォルダ内のファイルを数える
+  const files = monthFolder.getFiles();
+  let count = 0;
+  while (files.hasNext()) {
+    files.next();
+    count++;
+  }
+
+  return { count: count, daysInMonth: daysInMonth };
+}
+
+
+/* ===== ユーティリティ ===== */
 function getRootFolder_() {
   const folders = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
   return folders.hasNext() ? folders.next() : null;
 }
-
 function getOrCreateFolder_(parent, name) {
   const folders = parent.getFoldersByName(name);
   return folders.hasNext() ? folders.next() : parent.createFolder(name);
 }
-
 function getSubFolder_(parent, name) {
   const folders = parent.getFoldersByName(name);
   return folders.hasNext() ? folders.next() : null;
 }
 
-function getStreakInfo_(dateStr) {
+/* ===== 連続記録計算（最新版） ===== */
+function getCurrentStreak_() {
   const root = getRootFolder_();
-  if (!root) return { streak: 1 };
+  if (!root) return { streak: 0 };
 
+  // 「今日」または「昨日」を起点にする
+  // これにより、昨日分を今日書いても記録がつながる
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  // 今日書いているかチェック
+  if (checkFileExists_(root, today)) {
+    return calculateStreakFrom_(root, today);
+  } 
+  // 今日書いてないけど、昨日はあるかチェック（継続中扱い）
+  else if (checkFileExists_(root, yesterday)) {
+    return calculateStreakFrom_(root, yesterday);
+  }
+  
+  // どちらもなければ0日
+  return { streak: 0 };
+}
+
+// 指定日から過去へ遡ってカウントする関数
+function calculateStreakFrom_(root, startDate) {
   let streak = 0;
-  let current = new Date(dateStr);
+  let current = new Date(startDate);
 
   while (true) {
-    const y = current.getFullYear().toString();
-    const m = (current.getMonth() + 1).toString().padStart(2, "0");
-    const d = current.toISOString().slice(0, 10);
-
-    const yearFolder = getSubFolder_(root, y);
-    if (!yearFolder) break;
-
-    const monthFolder = getSubFolder_(yearFolder, m);
-    if (!monthFolder) break;
-
-    const files = monthFolder.getFilesByName(`${d}.txt`);
-    if (!files.hasNext()) break;
-
-    streak++;
-    current.setDate(current.getDate() - 1);
+    if (checkFileExists_(root, current)) {
+      streak++;
+      current.setDate(current.getDate() - 1);
+    } else {
+      break;
+    }
   }
-
   return { streak };
 }
 
-function getMonthlyStats() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
+// 特定の日付のファイルがあるか確認するヘルパー
+function checkFileExists_(root, dateObj) {
+  const y = dateObj.getFullYear().toString();
+  const m = (dateObj.getMonth() + 1).toString().padStart(2, "0");
+  const d = dateObj.toISOString().slice(0, 10); // YYYY-MM-DD
 
-  const folderName = "Diary";
-  const rootFolders = DriveApp.getFoldersByName(folderName);
-  if (!rootFolders.hasNext()) {
-    return { count: 0, daysInMonth: 30 };
-  }
-  const root = rootFolders.next();
+  const yearFolder = getSubFolder_(root, y);
+  if (!yearFolder) return false;
 
-  const yearFolders = root.getFoldersByName(String(year));
-  if (!yearFolders.hasNext()) {
-    return { count: 0, daysInMonth: new Date(year, month, 0).getDate() };
-  }
-  const yearFolder = yearFolders.next();
+  const monthFolder = getSubFolder_(yearFolder, m);
+  if (!monthFolder) return false;
 
-  const files = yearFolder.getFiles();
-  let count = 0;
-
-  while (files.hasNext()) {
-    const file = files.next();
-    if (file.getName().startsWith(month + "-")) {
-      count++;
-    }
-  }
-
-  const daysInMonth = new Date(year, month, 0).getDate();
-  return { count, daysInMonth };
+  const files = monthFolder.getFilesByName(`${d}.txt`);
+  return files.hasNext();
 }
