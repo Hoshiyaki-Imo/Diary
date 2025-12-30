@@ -198,3 +198,43 @@ function saveGoalToSheet(type, content, locked) {
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
+
+/**
+ * ドライブ上の設定ファイルを取得または作成する内部関数
+ */
+function getGoalFile_() {
+  const fileName = "goals_data.json";
+  const files = DriveApp.getFilesByName(fileName);
+  if (files.hasNext()) {
+    return files.next();
+  }
+  // ファイルがなければ初期状態で作成
+  return DriveApp.createFile(fileName, JSON.stringify({}), MimeType.PLAIN_TEXT);
+}
+
+function getYearlyGoal() {
+  const file = getGoalFile_();
+  const data = JSON.parse(file.getContent());
+  return data['yearly'] || null;
+}
+
+function getGoalFromSheet(type) {
+  const file = getGoalFile_();
+  const data = JSON.parse(file.getContent());
+  return data[type] || null;
+}
+
+function saveGoalToSheet(type, content, locked) {
+  const file = getGoalFile_();
+  const data = JSON.parse(file.getContent());
+  
+  data[type] = {
+    type: type,
+    content: content,
+    locked: locked,
+    updatedAt: new Date().toISOString()
+  };
+  
+  file.setContent(JSON.stringify(data));
+  return { status: "ok" };
+}

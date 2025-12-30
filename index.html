@@ -208,6 +208,9 @@
     <h1 id="app-title">DIARY</h1>
     <div id="yearlyGoalContainer">
   <div id="yearlyGoalText" style="font-size: 0.9rem; font-weight: bold;">
+    <div id="yearlyReviewSection" style="margin-top: 10px; display: none;">
+  <button class="btn" style="padding: 5px 15px; font-size: 0.8rem; width: auto; background: var(--primary); color: #000;" onclick="openYearlyReview()">年間総括を記入する</button>
+</div>
     <span class="goal-warning">【重要】年間目標が未設定です。設定してください。</span>
   </div>
 </div>
@@ -341,21 +344,26 @@
 
 <div id="settingsModal" class="modal-overlay">
   <div class="modal-card">
-    <h3 style="margin:0 0 20px; font-size:1.1rem; color:var(--primary);">設定</h3>
+    <h3 style="margin:0 0 20px; font-size:1.1rem; color:var(--primary); letter-spacing:2px;">システム設定</h3>
+    
+    <label style="color:var(--primary); font-weight:bold;">【最優先】年間目標の設定</label>
+    <textarea id="goalYearlyPrompt" rows="2" placeholder="例：2025年は〇〇を達成する" style="border:1px solid var(--primary);"></textarea>
+    <button class="btn" style="margin-bottom:20px;" onclick="saveYearlyGoal()">年間目標を保存</button>
+
+    <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
+
     <label>今月の目標（テキスト）</label>
     <textarea id="goalTextPrompt" rows="2" placeholder="例：毎日1時間勉強する"></textarea>
-    <label>年間目標（テキスト）</label>
-<textarea id="goalYearlyPrompt" rows="2" placeholder="例：今年は〇〇を習得する"></textarea>
-<button class="btn" onclick="saveYearlyGoal()">年間目標を保存</button>
-    <button class="btn" id="goalLockBtnText" onclick="saveGeneralGoal()">目標を保存</button>
-    <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
-    <label>目標学習時間 (合計分)</label>
+    <button class="btn" id="goalLockBtnText" onclick="saveGeneralGoal()">月次目標を保存</button>
+    
+    <label style="margin-top:20px;">目標学習時間 (合計分)</label>
     <div id="goalReference" style="font-size:0.7rem; background:rgba(0,0,0,0.05); padding:10px; border-radius:8px; margin-bottom:10px;">
-      <div id="lastWeekTotal">直近7日間: --分</div>
+      <div id="lastWeekTotal">先月の合計: --分</div>
       <div id="dailyGoalEst">1日の目安: --分</div>
     </div>
     <input type="number" id="goalTimeInput" oninput="calcDailyEst(this.value)">
     <button class="btn" id="goalLockBtn" onclick="saveGoal()">数値を保存</button>
+    
     <button class="btn" style="background:none; color:var(--text-sub); margin-top:10px;" onclick="closeSettings()">戻る</button>
   </div>
 </div>
@@ -613,13 +621,63 @@ function showRandomMemory() {
 }
 
 function openMonthlyReview() {
-  const y = new Date().getFullYear(); const m = new Date().getMonth() + 1;
-  google.script.run.withSuccessHandler(res => {
-    if(!res) return;
-    const total = res.daily.reduce((a, b) => a + (b.time || 0), 0);
-    document.getElementById("reviewStats").textContent = `${m}月の学習合計は ${total} 分でした。`;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const lastDay = new Date(year, month, 0).getDate();
+  
+  // 期間判定：末日の7日前（24日頃）から末日まで
+  if (now.getDate() < (lastDay - 6)) {
+    showAlert(`月末の振り返りは${lastDay - 6}日から可能です。`, "info");
+    return;
+  }
+
+  // 既存の振り返りデータを取得してロード
+  google.script.run.withSuccessHandler((existingData) => {
+    const textarea = document.getElementById("monthlySummary");
+    if (existingData && existingData.content) {
+      textarea.value = existingData.content;
+      showAlert("前回の保存内容を読み込みました。上書きする場合は編集して保存してください。", "info");
+    } else {
+      textarea.value = "";
+    }
     document.getElementById("monthlyReviewModal").style.display = "flex";
-  }).getDetailedStudyStats(y, m);
+  }).getGoalFromSheet(`review_${year}_${month}`); 
+}
+
+/**
+ * 年間振り返りを開く（12月15日〜31日のみ）
+ */
+function openYearlyReview() {
+  const now = new Date();
+  const year = now.getFullYear();
+  
+  // 期間判定：12月15日から12月31日まで
+  if (now.getMonth() !== 11 || now.getDate() < 15) {
+    showAlert("年間の振り返りは12月15日から可能です。", "info");
+    return;
+  }
+
+  google.script.run.withSuccessHandler((existingData) => {
+    // 年間振り返り用のモーダルを表示（月末用と共通、または新規作成）
+    const modal = document.getElementById("monthlyReviewModal");
+    const title = modal.querySelector("h3");
+    const textarea = document.getElementById("monthlySummary");
+    
+    title.textContent = `${year}年 年間総括`;
+    if (existingData && existingData.content) {
+      textarea.value = existingData.content;
+      showAlert("前回の年間総括を読み込みました。", "info");
+    } else {
+      textarea.value = "";
+    }
+    
+    // 保存ボタンの挙動を年間用に一時的に変更
+    const saveBtn = modal.querySelector("button[onclick^='saveMonthlyReview']");
+    saveBtn.setAttribute("onclick", `saveReviewData('yearly_${year}')`);
+    
+    modal.style.display = "flex";
+  }).getGoalFromSheet(`yearly_review_${year}`);
 }
 
 function saveMonthlyReview() {
@@ -636,25 +694,29 @@ function openSettings() {
   modal.style.display = "flex";
   
   const now = new Date();
-  // 追加：先月の計算
-  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lmYear = lastMonthDate.getFullYear();
-  const lmMonth = lastMonthDate.getMonth() + 1;
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const todayDate = now.getDate();
 
-  // 既存の統計取得関数を利用し、参照範囲を先月に変更
   google.script.run.withSuccessHandler((stats) => {
-    if (stats && stats.monthly) {
-      const lastMonthData = stats.monthly.find(m => m.month === lmMonth);
-      const total = lastMonthData ? lastMonthData.time : 0;
+    google.script.run.withSuccessHandler((goalData) => {
+      const goalTime = (goalData && goalData.content) ? parseInt(goalData.content) : 0;
+      const currentMonthData = (stats && stats.monthly) ? stats.monthly.find(m => m.month === month) : null;
+      const accumulatedTime = currentMonthData ? currentMonthData.time : 0;
       
-      // 既存のID「lastWeekTotal」を流用して表示
-      document.getElementById("lastWeekTotal").textContent = `先月(${lmMonth}月)の合計: ${total} 分`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const remainingDays = lastDay - todayDate + 1;
       
-      // 日次目安の計算ロジック（既存維持）
-      const daysInMonth = new Date(lmYear, lmMonth, 0).getDate();
-      document.getElementById("dailyGoalEst").textContent = `1日の目標目安: ${Math.floor(total / daysInMonth)} 分`;
-    }
-  }).getDetailedStudyStats(lmYear, lmMonth);
+      let dailyEst = 0;
+      if (goalTime > accumulatedTime) {
+        dailyEst = Math.ceil((goalTime - accumulatedTime) / remainingDays);
+      }
+
+      document.getElementById("lastWeekTotal").textContent = `今月の累計: ${accumulatedTime} 分 / 目標: ${goalTime} 分`;
+      document.getElementById("dailyGoalEst").textContent = `残り${remainingDays}日の目安: ${dailyEst} 分 / 日`;
+      document.getElementById("goalTimeInput").value = goalTime;
+    }).getGoalFromSheet(`goal_time_${year}_${month}`);
+  }).getDetailedStudyStats(year, month);
 }
 
 function closeSettings() { document.getElementById("settingsModal").style.display = "none"; }
@@ -721,13 +783,15 @@ function handleImage(input) {
 }
 
 function autoLoadEntry() {
-  const dateVal = document.getElementById("date").value;
-  if (!dateVal) return;
+  const dateEl = document.getElementById("date");
+  if (!dateEl || !dateEl.value) return;
+  const dateVal = dateEl.value;
   const dateParts = dateVal.split("-");
 
-  // 年間目標の取得と表示更新
+  // 年間目標の取得
   google.script.run.withSuccessHandler((goal) => {
     const display = document.getElementById("yearlyGoalText");
+    if (!display) return;
     if (goal && goal.content) {
       display.innerHTML = `<span style="color:var(--primary);">【2025年目標】</span> ${goal.content}`;
       display.classList.remove("goal-warning");
@@ -737,29 +801,26 @@ function autoLoadEntry() {
     }
   }).getYearlyGoal();
 
-  // 既存の日記読み込みロジック
+  // 既存の日記読み込みロジック（Code.gs側の既存関数を呼び出し）
   google.script.run.withSuccessHandler((data) => {
     const diary = document.getElementById("diary");
-    const emotion = document.getElementById("emotion");
-    const study = document.getElementById("studyTime");
-    const preview = document.getElementById("imagePreview");
-    const container = document.getElementById("imagePreviewContainer");
+    if (!diary) return;
     
     if (data) {
       diary.value = data.content || "";
-      emotion.value = data.emotion || "normal";
-      study.value = data.studyTime || 0;
+      document.getElementById("emotion").value = data.emotion || "normal";
+      document.getElementById("studyTime").value = data.studyTime || 0;
       if (data.image) {
-        preview.src = data.image;
-        container.style.display = "block";
+        document.getElementById('imagePreview').src = data.image;
+        document.getElementById('imagePreviewContainer').style.display = 'block';
       } else {
-        container.style.display = "none";
+        document.getElementById('imagePreviewContainer').style.display = 'none';
       }
     } else {
       diary.value = "";
-      emotion.value = "normal";
-      study.value = 0;
-      container.style.display = "none";
+      document.getElementById("emotion").value = "normal";
+      document.getElementById("studyTime").value = 0;
+      document.getElementById('imagePreviewContainer').style.display = 'none';
     }
   }).getDiaryContent(dateParts[0], parseInt(dateParts[1]), dateVal);
 }
@@ -784,14 +845,31 @@ function calculateStreak() {
 }
 
 function loadList() {
-  const y = document.getElementById("viewYear").value;
-  const m = document.getElementById("viewMonth").value;
-  toggleLoader(true, 'read', 0, "FETCHING...");
-  google.script.run.withSuccessHandler(data => {
-    currentDataList = data || [];
-    if (viewMode === 'list') renderList(currentDataList); else renderCalendar(currentDataList, y, m);
-    toggleLoader(false);
-  }).getDiaryList(y, m);
+  const year = document.getElementById("viewYear").value;
+  const month = document.getElementById("viewMonth").value;
+  const diaryList = document.getElementById("diaryList");
+  diaryList.innerHTML = "";
+
+  // 履歴の冒頭に目標と振り返りを表示する
+  google.script.run.withSuccessHandler((goal) => {
+    google.script.run.withSuccessHandler((review) => {
+      const infoCard = document.createElement("div");
+      infoCard.className = "card";
+      infoCard.style = "border-left: 4px solid var(--primary); background: rgba(187,134,252,0.05); margin-bottom: 20px;";
+      infoCard.innerHTML = `
+        <div style="font-size: 0.8rem; font-weight: bold; color: var(--primary);">【${month}月の目標】</div>
+        <div style="margin-bottom: 10px;">${goal ? goal.content : "未設定"}</div>
+        <div style="font-size: 0.8rem; font-weight: bold; color: var(--primary);">【${month}月の振り返り】</div>
+        <div>${review ? review.content : "まだ記入されていません"}</div>
+      `;
+      diaryList.prepend(infoCard);
+    }).getGoalFromSheet(`review_${year}_${month}`);
+  }).getGoalFromSheet(`goal_text_${year}_${month}`);
+
+  // 既存のリスト読み込み処理...
+  google.script.run.withSuccessHandler((list) => {
+    // ...
+  }).getDiaryList(year, month);
 }
 
 function renderList(data) {
@@ -903,19 +981,81 @@ function checkOverwrite() {
   }).getDiaryContent(dateParts[0], parseInt(dateParts[1]), dateVal);
 }
 
-window.onload = () => {
+/**
+ * 年間目標を保存する関数
+ */
+function saveYearlyGoal() {
+  const content = document.getElementById("goalYearlyPrompt").value;
+  if (!content) {
+    showAlert("目標を入力してください。", "info");
+    return;
+  }
+  
+  toggleLoader(true, 'write', content.length, "年間目標を保存中...");
+  
+  google.script.run.withSuccessHandler((res) => {
+    toggleLoader(false);
+    showAlert("年間目標を更新しました。表示を更新します。", "info", () => {
+      // 表示を即時反映させるためにautoLoadEntryを呼ぶか、リロード
+      autoLoadEntry(); 
+    });
+  }).saveGoalToSheet('yearly', content, false);
+}
+
+function saveReviewData(type) {
+  const content = document.getElementById("monthlySummary").value;
+  if (!content) return;
+
+  showAlert("以前の記録がある場合、上書きされます。よろしいですか？", "confirm", () => {
+    toggleLoader(true, 'write', content.length, "振り返りを保存中...");
+    google.script.run.withSuccessHandler(() => {
+      toggleLoader(false);
+      showAlert("振り返りを保存しました。", "info");
+      document.getElementById("monthlyReviewModal").style.display = "none";
+    }).saveGoalToSheet(type, content, true); // lockedをtrueにして保存
+  });
+}
+
+// 既存の window.onload や document.addEventListener をこれに置き換えてください
+window.addEventListener('load', () => {
+  // bodyが存在することを確認（絶対条件）
+  if (!document.body) return;
+
   const now = new Date();
-  document.getElementById("date").valueAsDate = now;
-  const sy = document.getElementById("statYear"); const sm = document.getElementById("statMonth");
-  const vy = document.getElementById("viewYear"); const vm = document.getElementById("viewMonth");
-  for(let i=now.getFullYear(); i>=now.getFullYear()-2; i--){ sy.add(new Option(i,i)); vy.add(new Option(i,i)); }
-  for(let i=1; i<=12; i++){ sm.add(new Option(i,i)); vm.add(new Option(i,i)); }
-  sm.value = vm.value = now.getMonth() + 1;
-  updateGoalDisplay(); 
-  updateMoonAndMode();
-  calculateStreak(); 
-  autoLoadEntry();
-};
+  const dateInput = document.getElementById("date");
+  
+  if (dateInput) {
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    dateInput.value = `${y}-${m}-${d}`;
+    
+    // ドライブへのアクセス承認を考慮し、少し待ってから実行
+    setTimeout(() => {
+      if (typeof autoLoadEntry === 'function') autoLoadEntry();
+    }, 500);
+  }
+
+  if (typeof updateMoonAndMode === 'function') updateMoonAndMode();
+
+  // 年間振り返りボタン表示
+  const yr = document.getElementById("yearlyReviewSection");
+  if (yr && now.getMonth() === 11 && now.getDate() >= 15) {
+    yr.style.display = "block";
+  }
+});
+
+function saveYearlyGoal() {
+  const content = document.getElementById("goalYearlyPrompt").value;
+  if (!content) return;
+  
+  toggleLoader(true, 'write', content.length, "年間目標を保存中...");
+  google.script.run.withSuccessHandler(() => {
+    toggleLoader(false);
+    showAlert("年間目標を保存しました。", "info");
+    autoLoadEntry(); // 表示を更新
+  }).saveGoalToSheet('yearly', content, false);
+}
 </script>
 </body>
 </html>
