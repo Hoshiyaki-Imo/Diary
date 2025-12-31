@@ -1,1061 +1,1448 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>DIARY_SYSTEM</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+  <base target="_top">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
-    :root { 
-    --primary: #bb86fc; 
-    --bg: #0d0d0d; 
-    --surface: #1a1a1a; 
-    --on-surface: #e0e0e0; 
-    --border: rgba(255, 255, 255, 0.1); 
-    --text-sub: #888; 
-    --padding-dynamic: 20px;
-    --wave-color: var(--primary);
-  }
+    :root {
+      --bg-color: #1a1a1a;
+      --text-color: #e0e0e0;
+      --accent-color: #7b5cff;
+      --accent-dark: #5a3ec8;
+      --panel-bg: #2d2d2d;
+      --input-bg: #3d3d3d;
+      --danger: #ff4d4d;
+      --gold: #ffd700;
+    }
 
-  [data-theme="light"] { 
-  --primary: #6200ee; 
-  --bg: #ffffff; 
-  --surface: #f0f0f0; 
-  --on-surface: #000000; 
-  --border: rgba(0, 0, 0, 0.2); 
-  --text-sub: #333;
-}
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; padding: 0;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Noto Sans JP', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: radial-gradient(#333 1px, transparent 1px);
+      background-size: 30px 30px;
+      animation: bgScroll 60s linear infinite;
+    }
 
-  #moon-phase { 
-  width: 60px; height: 60px; border-radius: 50%; background: #222; 
-  position: relative; overflow: hidden; box-shadow: 0 0 15px rgba(187,134,252,0.2);
-}
-.moon-light { 
-  position: absolute; height: 100%; background: #fffde7; 
-  transition: all 0.5s ease; box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
-}
+    @keyframes bgScroll {
+      0% { background-position: 0 0; }
+      100% { background-position: 30px 30px; }
+    }
 
-  /* ローダーテキストの視認性向上 */
-  #loaderText {
-    margin-top: 25px;
-    font-size: 0.8rem;
-    letter-spacing: 5px;
-    font-weight: 900;
-    color: var(--primary); /* テーマ変数に依存させずプライマリで固定 */
-    text-shadow: 0 0 10px rgba(0,0,0,0.5);
-  }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 15px 20px;
+      background: rgba(26, 26, 26, 0.95);
+      border-bottom: 1px solid #333;
+      z-index: 10;
+      backdrop-filter: blur(5px);
+    }
+    .app-title { font-weight: 700; font-size: 1.2rem; letter-spacing: 0.05em; }
+    .header-icons span { margin-left: 15px; cursor: pointer; font-size: 1.2rem; }
 
-  body { 
-    font-family: 'BIZ UDPGothic', sans-serif; 
-    margin: 0; 
-    background: var(--bg); 
-    color: var(--on-surface); 
-    transition: background 1.0s ease, color 0.4s ease; 
-    line-height: 1.8; 
-    letter-spacing: 0.05em;
-    overflow-x: hidden; 
-  }
+    #main-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      padding-bottom: 80px;
+      position: relative;
+    }
 
-  /* 感情オーバーレイ（追加） */
-  #emotion-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    z-index: -2; opacity: 0.3; transition: background 2s;
-    pointer-events: none;
-  }
+    .tab-content { display: none; opacity: 0; transition: opacity 0.3s ease; }
+    .tab-content.active { display: block; opacity: 1; animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-  #app-title {
-    font-family: 'BIZ UDPGothic', sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.4em;
-    text-transform: uppercase;
-    text-align: center;
-    margin: 20px 0;
-    color: var(--on-surface);
-  }
+    .bottom-nav {
+      position: fixed; bottom: 0; width: 100%;
+      background: #222;
+      display: flex; justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid #333;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+      z-index: 20;
+    }
+    .nav-item {
+      padding: 10px; color: #666; font-size: 0.9rem; cursor: pointer;
+      text-align: center; transition: color 0.2s;
+    }
+    .nav-item.active { color: var(--accent-color); font-weight: bold; }
 
-  /* 論理の波形ローダー（追加） */
-  #globalLoader { 
-    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-    background: rgba(0,0,0,0.9); z-index: 9000; justify-content: center; align-items: center; 
-    backdrop-filter: blur(15px); flex-direction: column; 
-  }
-  .wave-svg { width: 280px; height: 100px; }
-  .wave-path { fill: none; stroke: var(--wave-color); stroke-width: 3; transition: stroke 0.5s; }
+    .card {
+      background: var(--panel-bg);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    h2, h3 { margin-top: 0; font-weight: 500; font-size: 1rem; color: #ccc; margin-bottom: 10px; }
+    
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid #444;
+      color: #fff;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 1rem;
+      margin-bottom: 10px;
+      outline: none;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent-color); }
+    textarea { resize: none; height: 100px; }
 
-  /* コンテナ・レイアウト（既存維持） */
-  #bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: var(--bg); }
-  .container { max-width: 900px; margin: 0 auto; padding: 0 20px 60px; position: relative; z-index: 10; }
-  .header { display: flex; justify-content: space-between; align-items: center; padding: 30px 0; }
-  .header-btns { display: flex; align-items: center; gap: 15px; }
-  
-  .tab-bar { 
-    display: flex; background: var(--surface); border-radius: 50px; margin-bottom: 25px; 
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1); padding: 5px; border: 1px solid var(--border);
-  }
-  .tab { 
-    flex: 1; text-align: center; padding: 14px; cursor: pointer; font-size: 0.9rem; 
-    color: var(--text-sub); font-weight: bold; border-radius: 50px; transition: var(--transition);
-  }
-  .tab.active { color: #fff; background: var(--primary); box-shadow: 0 5px 15px rgba(187,134,252,0.4); }
-  [data-theme="light"] .tab.active { color: #ffffff; }
+    button {
+      background: var(--accent-color);
+      color: #fff; border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 1rem; cursor: pointer;
+      width: 100%;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+    button:active { transform: scale(0.98); }
+    button.secondary { background: #444; color: #ccc; }
+    button.secondary.active { background: #eee; color: #000; }
+    button.danger { background: var(--danger); }
+    
+    .btn-icon-subtle {
+      background: transparent; color: #666; font-size: 1.2rem;
+      padding: 5px 10px; width: auto; border: 1px solid transparent;
+    }
+    .btn-icon-subtle:hover { color: var(--danger); background: rgba(255, 77, 77, 0.1); }
 
-  /* カードデザイン（既存維持） */
-  .card { 
-    background: var(--surface); padding: 25px; border-radius: 24px; 
-    box-shadow: 0 15px 35px rgba(0,0,0,0.2); position: relative; overflow: hidden; 
-    margin-bottom: 20px; border: 1px solid var(--border); backdrop-filter: blur(10px);
-    animation: cardSlideUp 0.6s ease-out;
-  }
-  @keyframes cardSlideUp { from { opacity: 0; transform: translateY(25px); } to { opacity: 1; transform: translateY(0); } }
+    .slider-container { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+    input[type="range"] {
+      -webkit-appearance: none; width: 100%; height: 6px; background: #444; border-radius: 3px; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent-color); cursor: pointer;
+    }
 
-  label { display: block; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px; color: var(--primary); letter-spacing: 1px; }
-  input, select, textarea, button { 
-    width: 100%; padding: 14px; font-size: 1rem; border-radius: 12px; border: 1px solid var(--border); 
-    background: rgba(128,128,128,0.05); color: var(--on-surface); box-sizing: border-box; 
-    margin-bottom: 18px; outline: none; transition: var(--transition);
-  }
+    .photo-area {
+      border: 2px dashed #555; border-radius: 8px; padding: 20px;
+      text-align: center; margin-bottom: 15px; position: relative;
+      background-size: cover; background-position: center; min-height: 150px;
+      display: flex; justify-content: center; align-items: center; overflow: hidden;
+    }
+    .photo-preview { max-width: 100%; max-height: 300px; display: none; border-radius: 4px; }
+    .photo-btn-group { position: absolute; bottom: 10px; right: 10px; display: flex; gap: 5px; }
+    .mini-btn { padding: 5px 10px; font-size: 0.8rem; width: auto; background: rgba(0,0,0,0.6); }
 
-  /* テキストエリア（ダイナミックスペーシング適用） */
-  #diary {
-    padding: var(--padding-dynamic);
-    transition: padding 0.3s ease, border-color 0.4s;
-    line-height: 1.8;
-  }
-  
-  /* ボタン（システム的な演出） */
-  .btn { 
-    background: var(--primary); 
-    color: #000; 
-    font-weight: 700; 
-    border: none; 
-    cursor: pointer; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-  .btn:hover { transform: translateY(-1px); filter: brightness(1.1); box-shadow: 0 5px 15px rgba(187,134,252,0.3); }
-  .btn:active { transform: scale(0.99); }
+    #loading-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      z-index: 3000;
+      display: none;
+      backdrop-filter: blur(4px);
+    }
+    
+    .wave-container {
+      display: flex; justify-content: center; align-items: flex-end;
+      height: 40px; gap: 6px; margin-bottom: 20px;
+    }
+    .wave-bar {
+      width: 6px; background: var(--accent-color); border-radius: 3px;
+      animation: waveMove 1s ease-in-out infinite;
+    }
+    .wave-bar:nth-child(1) { animation-delay: 0.0s; height: 20px; }
+    .wave-bar:nth-child(2) { animation-delay: 0.1s; height: 35px; }
+    .wave-bar:nth-child(3) { animation-delay: 0.2s; height: 25px; }
+    .wave-bar:nth-child(4) { animation-delay: 0.1s; height: 30px; }
+    .wave-bar:nth-child(5) { animation-delay: 0.0s; height: 20px; }
 
-  /* 統計・グラフ（既存ロジック維持） */
-  .streak-badge { background: var(--streak-bg); color: var(--streak-text); padding: 10px 20px; border-radius: 50px; display: inline-flex; align-items: center; gap: 10px; font-weight: bold; font-size: 0.85rem; margin-bottom: 20px; border: 1px solid var(--border); }
-  .pie-container { display: flex; flex-direction: column; align-items: center; margin: 25px 0; }
-  .pie-svg { width: 130px; height: 130px; transform: rotate(-90deg); }
-  .pie-bg { fill: none; stroke: var(--border); stroke-width: 8; }
-  .pie-val { fill: none; stroke: var(--primary); stroke-width: 8; stroke-linecap: round; transition: stroke-dasharray 1.2s ease; }
-  .pie-text { text-align: center; margin-top: -75px; font-weight: bold; font-size: 1.2rem; margin-bottom: 55px; }
+    @keyframes waveMove {
+      0% { transform: scaleY(1); opacity: 0.6; }
+      50% { transform: scaleY(1.5); opacity: 1; box-shadow: 0 0 10px var(--accent-color); }
+      100% { transform: scaleY(1); opacity: 0.6; }
+    }
 
-  .chart-wrapper { position: relative; padding-left: 40px; margin-bottom: 40px; margin-top: 15px; }
-  .y-axis { position: absolute; left: 0; top: 0; bottom: 0; width: 40px; display: flex; flex-direction: column; justify-content: space-between; font-size: 0.65rem; color: var(--text-sub); text-align: right; padding-right: 8px; box-sizing: border-box; border-right: 1px solid var(--border); }
-  .bar-frame { height: 120px; display: flex; align-items: flex-end; border-bottom: 2px solid var(--border); gap: 4px; position: relative; }
-  .bar { flex: 1; background: var(--primary); border-radius: 4px 4px 0 0; position: relative; transition: height 1s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
-  .bar-tick { position: absolute; bottom: -25px; font-size: 0.55rem; color: var(--text-sub); transform: translateX(-50%); left: 50%; white-space: nowrap; }
+    #loading-text {
+      color: #fff; font-size: 0.9rem; font-family: monospace;
+      letter-spacing: 0.05em; opacity: 0.9;
+    }
 
-  /* カレンダー・モーダル・その他（既存維持） */
-  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 8000; justify-content: center; align-items: center; backdrop-filter: blur(8px); }
-  .modal-card { background: var(--surface); padding: 30px; border-radius: 28px; width: 90%; max-width: 420px; border: 1px solid var(--border); }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-  .cal-day { aspect-ratio: 1; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; background: var(--border); cursor: pointer; transition: 0.2s; }
-  .cal-day.has-data { background: var(--primary); color: #000; font-weight: bold; }
-  .tooltip { position: fixed; background: #333; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; pointer-events: none; opacity: 0; z-index: 9500; }
-  /* 年間目標を最上部に固定する設定 */
-#yearlyGoalContainer {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  background: var(--surface);
-  border-bottom: 2px solid var(--primary);
-  padding: 12px;
-  text-align: center;
-  margin-bottom: 20px;
-  backdrop-filter: blur(10px);
-}
+    #notification {
+      position: fixed; top: -100px; left: 50%; transform: translateX(-50%);
+      background: var(--accent-color); color: #fff;
+      padding: 10px 20px; border-radius: 25px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      z-index: 4000;
+      transition: top 0.5s ease;
+    }
 
-/* 画像表示サイズを適正化 */
-#imagePreview, #viewImage { 
-  max-width: 100%; 
-  max-height: 300px; 
-  object-fit: contain; 
-  border-radius: 12px;
-  margin-top: 10px;
-}
+    .modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7); z-index: 1000;
+      justify-content: center; align-items: center; padding: 20px;
+    }
+    #dialog-modal { z-index: 2000; }
+    #confirm-delete-modal { z-index: 2500; }
 
-/* 未設定時の警告スタイル */
-.goal-warning {
-  color: #ff5252;
-  font-weight: bold;
-  animation: blink 1.5s infinite;
-}
-@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    .modal-content {
+      background: var(--panel-bg); padding: 20px; border-radius: 12px;
+      width: 100%; max-width: 400px; display:flex; flex-direction: column; max-height: 85vh;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .modal-body { overflow-y: auto; flex: 1; margin-bottom: 20px; }
+    .modal-actions { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
+    .modal-actions-right { display: flex; gap: 10px; margin-left: auto; }
+
+    .memo-tabs { display: flex; gap: 5px; margin-bottom: 10px; }
+    .memo-tab { flex: 1; padding: 10px; background: #333; text-align: center; border-radius: 5px 5px 0 0; cursor: pointer; color:#888; }
+    .memo-tab.active { background: var(--accent-color); color: white; }
+    #memo-area { height: 300px; border-radius: 0 0 5px 5px; }
+
+    .pie-container { width: 200px; height: 200px; margin: 0 auto 20px auto; position: relative; }
+    .pie-center-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.5rem; font-weight: bold; }
+    
+    .history-list-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px; border-bottom: 1px solid #444; cursor: pointer; transition: background 0.2s;
+    }
+    .history-list-item:hover { background: rgba(255,255,255,0.05); }
+    .history-meta { font-size: 0.8rem; color: #888; margin-bottom: 4px; }
+    .history-preview { font-weight: 500; font-size: 0.95rem; }
+    .history-weekday { font-size: 0.75rem; color: #999; margin-left: 5px; }
+
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 10px; }
+    .cal-cell {
+      aspect-ratio: 1; background: #333; border-radius: 4px;
+      display: flex; justify-content: center; align-items: center; font-size: 0.8rem;
+      position: relative; cursor: pointer; color:#666;
+    }
+    .cal-cell.has-data { border: 1px solid var(--accent-color); color:#fff; }
+    .cal-dot { width: 4px; height: 4px; background: #fff; border-radius: 50%; position: absolute; bottom: 3px; }
+
+    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+    .grid-photo { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; cursor: pointer; }
+    
+    .streak-container { 
+      text-align: center; margin-bottom: 15px; 
+      background: rgba(123, 92, 255, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+    }
+    .streak-row { display: flex; justify-content: center; align-items: center; gap: 20px; }
+    .streak-item { text-align: center; }
+    .streak-label { font-size: 0.8rem; color: #999; margin-bottom: 5px; }
+    .streak-num { font-size: 1.5rem; font-weight: bold; color: var(--accent-color); }
+    .streak-num.record-breaking { 
+      color: var(--gold); 
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    .date-selector { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+    .date-selector button { width: auto; padding: 8px 15px; }
+    .date-selector select { width: auto; margin: 0 5px; }
+
+    .year-month-selector { display: flex; gap: 10px; margin-bottom: 15px; }
+    .year-month-selector select { flex: 1; }
+
+    .photo-sort-controls { display: flex; gap: 5px; margin-bottom: 10px; }
+    .photo-sort-btn { padding: 5px 10px; font-size: 0.75rem; width: auto; }
   </style>
 </head>
-<body data-theme="dark">
+<body>
 
-<div id="emotion-overlay"></div>
-<canvas id="bg-canvas"></canvas>
-
-<div id="globalLoader" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9000; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(10px); background: var(--bg); opacity: 0.98;">  <svg class="wave-svg" viewBox="0 0 200 60">
-    <path id="logicWave" class="wave-path" d="M 0 30 Q 50 30 100 30 T 200 30" />
-  </svg>
-  <div id="loaderText" style="margin-top: 20px; font-weight: bold; color: var(--on-surface); letter-spacing: 2px;">読み込み中...</div>
-</div>
-
-<div id="chartTooltip" class="tooltip"></div>
-
-<div class="container">
-  <div class="header">
-    <h1 id="app-title">DIARY</h1>
-    <div id="yearlyGoalContainer">
-  <div id="yearlyGoalText" style="font-size: 0.9rem; font-weight: bold;">
-    <div id="yearlyReviewSection" style="margin-top: 10px; display: none;">
-  <button class="btn" style="padding: 5px 15px; font-size: 0.8rem; width: auto; background: var(--primary); color: #000;" onclick="openYearlyReview()">年間総括を記入する</button>
-</div>
-    <span class="goal-warning">【重要】年間目標が未設定です。設定してください。</span>
+<header>
+  <div class="app-title">Diary</div>
+  <div class="header-icons">
+    <span onclick="showRandomDiary()">💡</span>
+    <span onclick="openSettings()">⚙️</span>
   </div>
-</div>
-    <div class="header-btns">
-      <div id="moon-phase" style="width: 55px; height: 55px; border-radius: 50%; background: #333; position: relative; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
-        <div class="moon-light" id="moon-light-layer" style="position: absolute; height: 100%; background: #fffde7; transition: 0.5s;"></div>
-      </div>
-      <button onclick="showRandomMemory()" style="border:none; background:none; cursor:pointer; font-size:1.3rem;">💡</button>
-      <button onclick="toggleTheme()" style="border:none; background:none; cursor:pointer; font-size:1.3rem;">🌓</button>
-      <button onclick="openSettings()" style="border:none; background:none; cursor:pointer; font-size:1.3rem;">⚙️</button>
-    </div>
-  </div>
+</header>
 
-  <div class="tab-bar">
-    <div class="tab active" id="tab-edit" onclick="showTab('edit')">記録</div>
-    <div class="tab" id="tab-stats" onclick="showTab('stats')">統計</div>
-    <div class="tab" id="tab-view" onclick="showTab('view')">履歴</div>
-  </div>
+<div id="main-container">
 
-  <div id="edit" class="content-section" style="display:block;">
-    <div id="memoryBox" class="memory-box" onclick="this.style.display='none'"></div>
-    
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <div class="streak-badge">
-        <span>継続記録: <span id="streakCount">0</span> 日</span>
-      </div>
-      <div id="monthlyReviewBtn" style="display:none;">
-        <button class="btn" style="padding:8px 16px; font-size:0.75rem; width:auto; background:var(--streak-bg); color:var(--primary);" onclick="openMonthlyReview()">今月の振り返り</button>
-      </div>
-    </div>
-
-    <div id="monthlyGoalDisplay" class="card" style="padding:15px; margin-bottom:20px; text-align:center;">
-      <label style="margin-bottom:2px; font-size:0.7rem; color:var(--text-sub);">今月の目標</label>
-      <div id="goalText" style="font-weight:bold;">未設定</div>
-    </div>
-
+  <div id="tab-record" class="tab-content active">
     <div class="card">
-      <label>日付</label>
-      <input type="date" id="date" onchange="autoLoadEntry()">
+      <div style="display:flex; gap:10px; margin-bottom:15px;">
+        <button id="btn-today" onclick="setDateMode('today')" class="active">今日</button>
+        <button id="btn-yesterday" onclick="setDateMode('yesterday')" class="secondary">昨日</button>
+      </div>
+      <div id="current-date-display" style="text-align:right; font-size:0.9rem; margin-bottom:10px; color:#888;"></div>
       
-      <div style="display:flex; gap:12px;">
-        <div style="flex:1">
-          <label>気分</label>
-          <select id="emotion" onchange="applyEmotionColor(this.value)">
-            <option value="normal">通常</option>
-            <option value="high">最高</option>
-            <option value="tired">疲れ</option>
-            <option value="angry">怒り</option>
-            <option value="sad">悲しみ</option>
-            <option value="fuzzy">困惑</option>
-          </select>
-        </div>
-        <div style="flex:1">
-          <label>学習時間 (分)</label>
-          <input type="number" id="studyTime" value="0" readonly>
-        </div>
-        <div style="flex:0.8">
-          <label>追加 (分)</label>
-          <input type="number" id="addStudyTime" value="0">
+      <div class="streak-container">
+        <div class="streak-row">
+          <div class="streak-item">
+            <div class="streak-label">連続記録</div>
+            <div id="streak-count" class="streak-num">--</div>
+          </div>
+          <div class="streak-item">
+            <div class="streak-label">最長記録</div>
+            <div id="max-streak-count" class="streak-num">--</div>
+          </div>
         </div>
       </div>
 
-      <label>本文</label>
-      <textarea id="diary" rows="10" placeholder="今日の出来事を書きましょう..."></textarea>
-      
-      <label>画像</label>
-      <input type="file" id="imgInput" accept="image/*" onchange="handleImage(this)">
-      <div id="imagePreviewContainer" style="display:none; margin-bottom:20px;">
-        <img id="imagePreview" style="width:100%; border-radius:12px;">
+      <h3>気分: <span id="emotion-val">3</span></h3>
+      <div class="slider-container">
+        <span>1</span>
+        <input type="range" id="emotion-input" min="1" max="5" value="3" oninput="updateEmotionDisplay()">
+        <span>5</span>
       </div>
-      
-      <button class="btn" onclick="checkOverwrite()" id="saveBtn">保存</button>
+
+      <h3>学習時間 (分)</h3>
+      <div style="display:flex; gap:10px;">
+        <input type="number" id="study-time" value="0">
+        <input type="number" id="study-add" placeholder="+追加" style="width:80px;">
+      </div>
+
+      <h3>本文</h3>
+      <textarea id="diary-content" placeholder="記録..."></textarea>
+
+      <h3>自己嫌悪</h3>
+      <textarea id="self-hate" placeholder="吐き出し..." style="height: 80px;"></textarea>
+
+      <h3>写真 (1枚)</h3>
+      <div class="photo-area" id="photo-drop-area">
+        <span id="photo-placeholder">タップして写真を選択</span>
+        <img id="photo-preview-img" class="photo-preview">
+        <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhotoSelect(this)">
+        <div class="photo-btn-group" id="photo-controls" style="display:none;">
+          <button class="mini-btn danger" onclick="removePhoto(event)">削除</button>
+        </div>
+      </div>
+
+      <button onclick="preSaveCheck()">保存</button>
     </div>
   </div>
 
-  <div id="stats" class="content-section" style="display:none">
+  <div id="tab-study" class="tab-content">
     <div class="card">
-      <div style="display:flex; gap:10px; margin-bottom:25px;">
-        <select id="statYear" onchange="refreshStats()"></select>
-        <select id="statMonth" onchange="refreshStats()"></select>
+      <div class="year-month-selector">
+        <select id="study-year-select" onchange="loadStudyData()"></select>
+        <select id="study-month-select" onchange="loadStudyData()"></select>
       </div>
-      
-      <label style="text-align:center;">目標達成率</label>
+
+      <h3>今月の目標達成度</h3>
       <div class="pie-container">
-        <svg class="pie-svg" viewBox="0 0 100 100">
-          <circle class="pie-bg" cx="50" cy="50" r="40"></circle>
-          <circle id="pieFill" class="pie-val" cx="50" cy="50" r="40" stroke-dasharray="0 251.2"></circle>
-        </svg>
-        <div id="pieLabel" class="pie-text">0%</div>
+        <canvas id="goalChart"></canvas>
+        <div class="pie-center-text" id="goal-percent">0%</div>
       </div>
-      <p id="progressSub" style="font-size:0.75rem; color:var(--text-sub); text-align:center; margin-bottom:30px;"></p>
-
-      <label>日別学習時間</label>
-      <div class="chart-wrapper">
-        <div id="yAxisDaily" class="y-axis"></div>
-        <div id="dailyChart" class="bar-frame"></div>
-      </div>
-
-      <label style="margin-top:25px;">月別学習推移</label>
-      <div class="chart-wrapper">
-        <div id="yAxisMonthly" class="y-axis"></div>
-        <div id="monthlyChart" class="bar-frame"></div>
+      <div style="text-align:center; font-size:0.9rem;">
+        目標: <span id="goal-val">0</span>分 / 実績: <span id="current-val">0</span>分
       </div>
     </div>
-  </div>
 
-  <div id="view" class="content-section" style="display:none">
     <div class="card">
-      <div style="display:flex; justify-content: space-between; margin-bottom:20px;">
-        <div style="display:flex; gap:10px;">
-          <select id="viewYear" onchange="loadList()"></select>
-          <select id="viewMonth" onchange="loadList()"></select>
+      <div style="display:flex; justify-content:center; gap:10px; margin-bottom:10px;">
+        <button id="btn-chart-daily" class="mini-btn active" onclick="switchChart('daily')">日別</button>
+        <button id="btn-chart-monthly" class="mini-btn secondary" onclick="switchChart('monthly')">月別</button>
+      </div>
+      <canvas id="studyBarChart" style="height:250px;"></canvas>
+    </div>
+  </div>
+
+  <div id="tab-history" class="tab-content">
+    <div class="card">
+      <div class="date-selector">
+        <button onclick="changeHistoryMonth(-1)">◀</button>
+        <div>
+          <select id="history-year-select" onchange="loadHistoryData()"></select>
+          <select id="history-month-select" onchange="loadHistoryData()"></select>
         </div>
-        <button onclick="toggleViewMode()" id="viewModeBtn" class="btn" style="width:auto; padding:5px 15px; font-size:0.8rem;">カレンダー表示</button>
-      </div>
-      <div id="diaryList"></div>
-      <div id="calendarView" class="cal-grid" style="display:none;"></div>
-    </div>
-    
-    <div id="viewerCard" class="card" style="display:none; border:2px solid var(--primary);">
-      <div id="viewMeta" style="font-size:0.85rem; color:var(--primary); margin-bottom:12px; font-weight:bold;"></div>
-      <div id="viewBody" style="white-space:pre-wrap; margin-bottom:20px; line-height:1.8;"></div>
-      <div id="viewImageContainer" style="display:none; margin-bottom:20px;"><img id="viewImage" style="width:100%; border-radius:12px;"></div>
-      <div style="display:flex; gap:12px;">
-        <button class="btn" style="background:#666; color:#fff; flex:1;" onclick="document.getElementById('viewerCard').style.display='none'">閉じる</button>
-        <button class="btn" style="background:#cf6679; color:#fff; flex:1;" id="deleteBtn">削除</button>
+        <button onclick="changeHistoryMonth(1)">▶</button>
       </div>
     </div>
-  </div>
-</div>
 
-<div id="settingsModal" class="modal-overlay">
-  <div class="modal-card">
-    <h3 style="margin:0 0 20px; font-size:1.1rem; color:var(--primary); letter-spacing:2px;">システム設定</h3>
-    
-    <label style="color:var(--primary); font-weight:bold;">【最優先】年間目標の設定</label>
-    <textarea id="goalYearlyPrompt" rows="2" placeholder="例：2025年は〇〇を達成する" style="border:1px solid var(--primary);"></textarea>
-    <button class="btn" style="margin-bottom:20px;" onclick="saveYearlyGoal()">年間目標を保存</button>
-
-    <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
-
-    <label>今月の目標（テキスト）</label>
-    <textarea id="goalTextPrompt" rows="2" placeholder="例：毎日1時間勉強する"></textarea>
-    <button class="btn" id="goalLockBtnText" onclick="saveGeneralGoal()">月次目標を保存</button>
-    
-    <label style="margin-top:20px;">目標学習時間 (合計分)</label>
-    <div id="goalReference" style="font-size:0.7rem; background:rgba(0,0,0,0.05); padding:10px; border-radius:8px; margin-bottom:10px;">
-      <div id="lastWeekTotal">先月の合計: --分</div>
-      <div id="dailyGoalEst">1日の目安: --分</div>
+    <div style="display:flex; overflow-x:auto; gap:5px; margin-bottom:10px; padding-bottom:5px;">
+      <button id="hist-btn-list" class="mini-btn secondary active" onclick="setHistoryMode('list')">リスト</button>
+      <button id="hist-btn-calendar" class="mini-btn secondary" onclick="setHistoryMode('calendar')">カレンダー</button>
+      <button id="hist-btn-emotion" class="mini-btn secondary" onclick="setHistoryMode('emotion')">気分</button>
+      <button id="hist-btn-photo" class="mini-btn secondary" onclick="setHistoryMode('photo')">写真</button>
     </div>
-    <input type="number" id="goalTimeInput" oninput="calcDailyEst(this.value)">
-    <button class="btn" id="goalLockBtn" onclick="saveGoal()">数値を保存</button>
     
-    <button class="btn" style="background:none; color:var(--text-sub); margin-top:10px;" onclick="closeSettings()">戻る</button>
+    <div id="photo-sort-container" class="photo-sort-controls" style="display:none;">
+      <button id="sort-newest" class="photo-sort-btn secondary active" onclick="setPhotoSort('newest')">新しい順</button>
+      <button id="sort-oldest" class="photo-sort-btn secondary" onclick="setPhotoSort('oldest')">古い順</button>
+      <button id="sort-random" class="photo-sort-btn secondary" onclick="setPhotoSort('random')">ランダム</button>
+    </div>
+    
+    <div id="history-view-container" class="card" style="min-height:300px;"></div>
+  </div>
+
+  <div id="tab-memo" class="tab-content">
+    <div class="memo-tabs">
+      <div class="memo-tab active" onclick="switchMemo(1)">1</div>
+      <div class="memo-tab" onclick="switchMemo(2)">2</div>
+      <div class="memo-tab" onclick="switchMemo(3)">3</div>
+      <div class="memo-tab" onclick="switchMemo(4)">4</div>
+      <div class="memo-tab" onclick="switchMemo(5)">5</div>
+    </div>
+    <textarea id="memo-area" oninput="debounceMemoSave()" placeholder="メモを入力..."></textarea>
+    <div id="memo-status" style="text-align:right; font-size:0.8rem; color:#888; height:1rem;"></div>
+  </div>
+
+</div>
+
+<div class="bottom-nav">
+  <div class="nav-item active" onclick="switchTab('record')">記録</div>
+  <div class="nav-item" onclick="switchTab('study')">学習</div>
+  <div class="nav-item" onclick="switchTab('history')">履歴</div>
+  <div class="nav-item" onclick="switchTab('memo')">メモ</div>
+</div>
+
+<div id="loading-overlay">
+  <div class="wave-container">
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+  </div>
+  <div id="loading-text">データを処理中...</div>
+</div>
+
+<div id="notification">保存しました</div>
+
+<div id="dialog-modal" class="modal">
+  <div class="modal-content" style="max-width:320px;">
+    <h3 id="dialog-title">確認</h3>
+    <div class="modal-body">
+      <p id="dialog-message">メッセージ</p>
+    </div>
+    <div class="modal-actions" style="justify-content: flex-end; gap:10px;">
+      <div id="dialog-actions" style="display:flex; gap:10px; width:100%; justify-content:flex-end;"></div>
+    </div>
   </div>
 </div>
 
-<div id="monthlyReviewModal" class="modal-overlay">
-  <div class="modal-card">
-    <h3 style="margin:0 0 15px; color:var(--primary);">今月のまとめ</h3>
-    <p id="reviewStats" style="font-size:0.85rem; margin-bottom:15px;"></p>
-    <label>振り返りコメント</label>
-    <textarea id="monthlySummary" rows="3"></textarea>
-    <button class="btn" onclick="saveMonthlyReview()">振り返りを記録</button>
-    <button class="btn" style="background:none; color:var(--text-sub);" onclick="document.getElementById('monthlyReviewModal').style.display='none'">キャンセル</button>
+<div id="confirm-delete-modal" class="modal">
+  <div class="modal-content" style="max-width:320px;">
+    <h3>削除確認</h3>
+    <div class="modal-body">
+      <p id="confirm-delete-message">本当に削除しますか？</p>
+    </div>
+    <div class="modal-actions" style="justify-content: flex-end; gap:10px;">
+      <button class="secondary" onclick="closeConfirmDelete()" style="width:auto;">キャンセル</button>
+      <button class="danger" onclick="executeDelete()" style="width:auto;">削除する</button>
+    </div>
   </div>
 </div>
 
-<div id="customAlert" class="modal-overlay">
-  <div class="modal-card" style="text-align:center;">
-    <p id="alertMsg" style="font-weight:bold;"></p>
-    <div id="alertBtns" style="display:flex; gap:10px; margin-top:20px; justify-content:center;"></div>
+<div id="settings-modal" class="modal">
+  <div class="modal-content">
+    <h3>設定</h3>
+    <div class="modal-body">
+      <p>今月の目標学習時間(分)</p>
+      <input type="number" id="setting-goal" placeholder="例: 3000">
+      <p style="font-size:0.8rem; color:#aaa;">
+        先月の総勉強時間: <span id="prev-month-total">--</span>分<br>
+        1日の目安: <span id="daily-guideline">--</span>分
+      </p>
+    </div>
+    <div class="modal-actions" style="justify-content: flex-end; gap:10px;">
+      <button class="secondary" onclick="closeSettings()" style="width:auto;">キャンセル</button>
+      <button onclick="saveSettings()" style="width:auto;">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="detail-modal" class="modal">
+  <div class="modal-content">
+    <h3 id="detail-date">YYYY/MM/DD</h3>
+    <div class="modal-body">
+      <p>気分: <span id="detail-emotion"></span> / 学習: <span id="detail-study"></span>分</p>
+      <div id="detail-photo-container" style="margin-bottom:10px;"></div>
+      <div id="detail-content" style="white-space: pre-wrap; background:#333; padding:10px; border-radius:8px; font-size:0.95rem;"></div>
+    </div>
+    <div class="modal-actions">
+      <button id="btn-delete-diary" class="btn-icon-subtle" onclick="confirmDelete()">🗑️</button>
+      <div class="modal-actions-right">
+        <button class="secondary" onclick="closeDetail()" style="width:auto;">閉じる</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
+  let currentTab = 'record';
+  let recordDate = new Date();
+  let memoData = {};
+  let currentMemoIdx = 1;
+  let chartInstances = {};
+  let currentHistory = [];
+  let currentGoal = 0;
+  let currentDetailItem = null;
+  let currentStudyYear = new Date().getFullYear();
+  let currentStudyMonth = ("0" + (new Date().getMonth() + 1)).slice(-2);
+  let currentHistoryYear = new Date().getFullYear();
+  let currentHistoryMonth = ("0" + (new Date().getMonth() + 1)).slice(-2);
+  let currentChartMode = 'daily';
+  let currentPhotoSort = 'newest';
+  let pendingDeleteItem = null;
 
-/**
- * 月齢の描画とモードに応じた視覚調整
- */
-function updateMoonAndMode() {
-  const now = new Date();
-  const day = now.getDate();
-  const moonLayer = document.getElementById('moon-light-layer');
-  if (!moonLayer) return;
+  const loadingMessages = [
+    "データを取得中...",
+    "インデックスを構築中...",
+    "暗号化データを処理中...",
+    "画像を解析しています...",
+    "サーバーと通信中...",
+    "データを同期しています...",
+    "キャッシュを更新中..."
+  ];
 
-  const phase = (day % 30) / 30; 
-  if (phase <= 0.5) {
-    const p = phase * 2;
-    moonLayer.style.left = (100 - p * 100) + "%";
-    moonLayer.style.width = (p * 100) + "%";
-    moonLayer.style.borderRadius = "0 50% 50% 0";
-  } else {
-    const p = (phase - 0.5) * 2;
-    moonLayer.style.left = "0%";
-    moonLayer.style.width = (100 - p * 100) + "%";
-    moonLayer.style.borderRadius = "50% 0 0 50%";
-  }
-}
-
-/* --- 1. 背景アニメーション (完全維持) --- */
-const canvas = document.getElementById('bg-canvas');
-const ctx = canvas.getContext('2d');
-let particles = [];
-let mouse = { x: null, y: null, radius: 150 };
-window.addEventListener('mousemove', e => { mouse.x = e.x; mouse.y = e.y; });
-window.addEventListener('touchstart', e => { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
-class Particle {
-  constructor() { this.init(); }
-  init() {
-    this.x = Math.random() * canvas.width;
-    this.y = Math.random() * canvas.height;
-    this.size = Math.random() * 2 + 0.5;
-    this.baseX = this.x; this.baseY = this.y;
-    this.density = (Math.random() * 40) + 5;
-    this.color = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-  }
-  draw() {
-    ctx.fillStyle = this.color;
-    ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
-  }
-  update() {
-    let dx = mouse.x - this.x; let dy = mouse.y - this.y;
-    let distance = Math.sqrt(dx*dx + dy*dy);
-    if (distance < mouse.radius) {
-      let force = (mouse.radius - distance) / mouse.radius;
-      this.x -= (dx / distance) * force * this.density;
-      this.y -= (dy / distance) * force * this.density;
-    } else {
-      this.x += (this.baseX - this.x) * 0.05;
-      this.y += (this.baseY - this.y) * 0.05;
-    }
-  }
-}
-function initBg() {
-  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-  particles = [];
-  let count = (canvas.width * canvas.height) / 10000;
-  for (let i = 0; i < count; i++) particles.push(new Particle());
-}
-function animateBg() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  particles.forEach(p => { p.update(); p.draw(); });
-  requestAnimationFrame(animateBg);
-}
-window.addEventListener('resize', initBg);
-initBg(); animateBg();
-
-/* --- 2. 指示による追加：論理の波形アニメーション制御 --- */
-let waveFrame = 0;
-let waveMode = 'read'; 
-let charWeight = 0;
-
-function animateWave() {
-  const path = document.getElementById('logicWave');
-  if (!path) return;
-  waveFrame++;
-  let d = "";
-  if (waveMode === 'read') {
-    let points = [];
-    for (let x = 0; x <= 200; x += 5) {
-      let y = 30 + Math.sin((x + waveFrame * 5) * 0.05) * 10;
-      points.push(`${x} ${y}`);
-    }
-    d = `M ${points.join(' L ')}`;
-  } else {
-    // パルス波の修正：中央だけでなく全体が減衰しながら波打つように変更
-    let points = [];
-    let amp = Math.min(25, 5 + (charWeight / 50));
-    for (let x = 0; x <= 200; x += 2) {
-      // 中央(x=100)で最大、端にいくほど小さくなるガウス分布的な揺れ
-      let dist = Math.abs(x - 100);
-      let factor = Math.exp(-Math.pow(dist / 40, 2)); 
-      let y = 30 + Math.sin((x * 0.2) + (waveFrame * 0.3)) * amp * factor;
-      points.push(`${x} ${y}`);
-    }
-    d = `M ${points.join(' L ')}`;
-  }
-  path.setAttribute('d', d);
-  if (document.getElementById('globalLoader').style.display === 'flex') requestAnimationFrame(animateWave);
-}
-
-/* 統合ローダー関数（既存のtoggleLoaderを拡張） */
-function toggleLoader(show, mode = 'read', weight = 0, text = "SYNCING...") {
-  const loader = document.getElementById("globalLoader");
-  document.getElementById("loaderText").textContent = text;
-  waveMode = mode;
-  charWeight = weight;
-  loader.style.display = show ? "flex" : "none";
-  if (show) animateWave();
-}
-
-/* --- 3. 指示による追加：自然のリズム (月・感情・時間) --- */
-function applyEmotionColor(emotion) {
-  const overlay = document.getElementById('emotion-overlay');
-  const colors = {
-    normal: 'transparent',
-    high: 'rgba(255, 215, 0, 0.2)',
-    tired: 'rgba(72, 61, 139, 0.3)',
-    angry: 'rgba(220, 20, 60, 0.2)',
-    sad: 'rgba(30, 144, 255, 0.2)',
-    fuzzy: 'rgba(128, 0, 128, 0.2)'
+  window.onload = function() {
+    initRecordTab();
+    loadMemoData();
+    fetchStartupData();
+    initYearMonthSelectors();
+    checkMonthGoalRequired();
   };
-  overlay.style.background = colors[emotion] || 'transparent';
-}
 
-/* --- 4. メインロジック (全機能維持 + 指示マージ) --- */
-let currentDataList = [];
-let selectedImageData = null;
-let viewMode = 'list';
-let hasPromptedMonthlyReview = false;
-let hasPromptedGoal = false;
-
-function showTab(t) {
-  const currentGoal = localStorage.getItem(`goal_text_${new Date().getFullYear()}_${new Date().getMonth() + 1}`);
-  if (!currentGoal && !hasPromptedGoal && t !== 'edit') {
-    hasPromptedGoal = true;
-    showAlert("今月の目標がまだ設定されていません。設定しますか？", "confirm", openSettings);
-    return;
-  }
-  const now = new Date();
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  if (now.getDate() >= lastDay - 2 && !hasPromptedMonthlyReview && t !== 'edit') {
-    hasPromptedMonthlyReview = true;
-    showAlert("月末になりました。今月の総括を記入しませんか？", "confirm", openMonthlyReview);
-    return;
-  }
-  document.querySelectorAll('.content-section').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-  document.getElementById(t).style.display = 'block';
-  document.getElementById('tab-' + t).classList.add('active');
-  if(t === 'stats') refreshStats();
-  if(t === 'view') loadList();
-}
-
-function toggleTheme() {
-  const b = document.body;
-  b.setAttribute("data-theme", b.getAttribute("data-theme") === "dark" ? "light" : "dark");
-  particles.forEach(p => p.init());
-}
-
-function refreshStats() {
-  const y = document.getElementById("statYear").value;
-  const m = document.getElementById("statMonth").value;
-  toggleLoader(true, 'read', 0, "ANALYZING...");
-  google.script.run.withSuccessHandler(res => {
-    toggleLoader(false);
-    if(!res) return;
-    const goal = localStorage.getItem(`goal_${y}_${m}`) || 0;
-    const total = res.daily.reduce((a, b) => a + (b.time || 0), 0);
-    const percent = goal > 0 ? Math.min(Math.round((total / goal) * 100), 100) : 0;
-    document.getElementById("pieFill").setAttribute("stroke-dasharray", `${(percent / 100) * 251.2} 251.2`);
-    document.getElementById("pieLabel").textContent = `${percent}%`;
-    document.getElementById("progressSub").textContent = goal > 0 ? `合計: ${total}分 / 目標: ${goal}分` : "目標未設定";
-    drawChart("dailyChart", "yAxisDaily", res.daily.map(d => ({ label: d.day, val: d.time })), 5);
-    drawChart("monthlyChart", "yAxisMonthly", res.monthly.map(m => ({ label: m.month, val: m.time })), 1);
-  }).getDetailedStudyStats(y, m);
-}
-
-function drawChart(chartId, axisId, data, step) {
-  const frame = document.getElementById(chartId);
-  const axis = document.getElementById(axisId);
-  frame.innerHTML = ""; axis.innerHTML = "";
-  const vals = data.map(d => d.val || 0);
-  const max = Math.max(...vals, 60);
-  for(let i=4; i>=0; i--) {
-    const d = document.createElement("div"); d.textContent = Math.round(max * (i/4)); axis.appendChild(d);
-  }
-  data.forEach((d, i) => {
-    const bar = document.createElement("div");
-    bar.className = "bar"; bar.style.height = `${(d.val / max) * 100}%`;
-    bar.onmouseenter = (e) => showTooltip(e, `${d.label}: ${d.val}分`);
-    bar.onmouseleave = hideTooltip;
-    if ((i + 1) % step === 0 || i === 0 || i === data.length - 1) {
-      const t = document.createElement("div"); t.className = "bar-tick"; t.textContent = d.label; bar.appendChild(t);
+  function showLoading(text) {
+    let display = text;
+    if (!text || text === '読み込み中...') {
+      display = loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
     }
-    frame.appendChild(bar);
-  });
-}
+    document.getElementById('loading-text').innerText = display;
+    document.getElementById('loading-overlay').style.display = 'flex';
+  }
 
-/* 指示追加：ダイナミック・スペーシングのリスナー */
-document.getElementById("diary").addEventListener("input", (e) => {
-  const charCount = e.target.value.length;
-  const newPadding = Math.max(10, 20 - (charCount / 100));
-  document.documentElement.style.setProperty('--padding-dynamic', `${newPadding}px`);
-});
+  function hideLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
+  }
 
-function showRandomMemory() {
-  const now = new Date();
-  google.script.run.withSuccessHandler((list) => {
-    // 追加：未記録時のガード
-    if (!list || list.length === 0) {
-      showAlert("まだ何も記録されていないようです。履歴を蓄積してください。", "info");
+  function showNotification(msg) {
+    const el = document.getElementById('notification');
+    el.innerText = msg;
+    el.style.top = '20px';
+    setTimeout(() => { el.style.top = '-100px'; }, 3000);
+  }
+  
+  function showDialog(title, msg, onConfirm, showCancel=true) {
+    document.getElementById('dialog-title').innerText = title;
+    document.getElementById('dialog-message').innerText = msg;
+    const actions = document.getElementById('dialog-actions');
+    actions.innerHTML = '';
+    
+    if(showCancel) {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'secondary';
+      cancelBtn.innerText = 'キャンセル';
+      cancelBtn.style.width = 'auto';
+      cancelBtn.onclick = () => document.getElementById('dialog-modal').style.display = 'none';
+      actions.appendChild(cancelBtn);
+    }
+    
+    const confirmBtn = document.createElement('button');
+    confirmBtn.innerText = 'OK';
+    confirmBtn.style.width = 'auto';
+    confirmBtn.onclick = () => {
+      document.getElementById('dialog-modal').style.display = 'none';
+      if(onConfirm) onConfirm();
+    };
+    actions.appendChild(confirmBtn);
+    
+    document.getElementById('dialog-modal').style.display = 'flex';
+  }
+
+  function checkMonthGoalRequired() {
+    const now = new Date();
+    if (now.getDate() <= 5) {
+      showLoading('目標設定を確認中...');
+      google.script.run.withSuccessHandler(goal => {
+        hideLoading();
+        if (goal === 0) {
+          showDialog('月初の目標設定', '今月の目標学習時間を設定してください', () => {
+            openSettings();
+          }, false);
+        }
+      }).withFailureHandler(err => {
+        hideLoading();
+      }).getMonthGoal(now.getFullYear(), ("0" + (now.getMonth() + 1)).slice(-2));
+    }
+  }
+
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById('tab-' + tabName).classList.add('active');
+    document.querySelectorAll('.nav-item')[['record','study','history','memo'].indexOf(tabName)].classList.add('active');
+    
+    currentTab = tabName;
+    
+    if(tabName === 'study') loadStudyData();
+    if(tabName === 'history') loadHistoryData();
+    if(tabName === 'memo') renderMemo();
+  }
+
+  function initRecordTab() {
+    updateEmotionDisplay();
+    document.getElementById('photo-drop-area').onclick = () => document.getElementById('photo-input').click();
+    setDateMode('today');
+  }
+
+  function setDateMode(mode) {
+    const today = new Date();
+    if(mode === 'today') {
+      recordDate = today;
+      document.getElementById('btn-today').className = 'active';
+      document.getElementById('btn-yesterday').className = 'secondary';
+    } else {
+      recordDate = new Date(today);
+      recordDate.setDate(today.getDate() - 1);
+      document.getElementById('btn-today').className = 'secondary';
+      document.getElementById('btn-yesterday').className = 'active';
+    }
+    
+    const y = recordDate.getFullYear();
+    const m = ("0"+(recordDate.getMonth()+1)).slice(-2);
+    const d = ("0"+recordDate.getDate()).slice(-2);
+    document.getElementById('current-date-display').innerText = `${y}/${m}/${d}`;
+    loadDiaryForDate(y, m, d);
+  }
+
+  function updateEmotionDisplay() {
+    document.getElementById('emotion-val').innerText = document.getElementById('emotion-input').value;
+  }
+
+  function handlePhotoSelect(input) {
+    if(input.files && input.files[0]) {
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > 800) { height *= 800 / width; width = 800; }
+          } else {
+            if (height > 800) { width *= 800 / height; height = 800; }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const dataUrl = canvas.toDataURL('image/png', 0.8);
+          document.getElementById('photo-preview-img').src = dataUrl;
+          document.getElementById('photo-preview-img').style.display = 'block';
+          document.getElementById('photo-placeholder').style.display = 'none';
+          document.getElementById('photo-controls').style.display = 'flex';
+        };
+        img.src = e.target.result;
+      }
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function removePhoto(e) {
+    e.stopPropagation();
+    document.getElementById('photo-input').value = "";
+    document.getElementById('photo-preview-img').src = "";
+    document.getElementById('photo-preview-img').style.display = 'none';
+    document.getElementById('photo-placeholder').style.display = 'block';
+    document.getElementById('photo-controls').style.display = 'none';
+  }
+
+  function loadDiaryForDate(y, m, d) {
+    showLoading('日記データを読み込み中...'); 
+    google.script.run.withSuccessHandler(res => {
+      hideLoading();
+      if(res.exists) {
+        const data = res.data;
+        document.getElementById('emotion-input').value = data.emotion;
+        updateEmotionDisplay();
+        document.getElementById('study-time').value = data.studyTime;
+        document.getElementById('diary-content').value = data.content || "";
+        document.getElementById('self-hate').value = data.hateMyself || "";
+        
+        if(res.image) {
+          document.getElementById('photo-preview-img').src = res.image;
+          document.getElementById('photo-preview-img').style.display = 'block';
+          document.getElementById('photo-placeholder').style.display = 'none';
+          document.getElementById('photo-controls').style.display = 'flex';
+        } else {
+          removePhoto({stopPropagation:()=>{}}); 
+        }
+      } else {
+        document.getElementById('emotion-input').value = 3;
+        updateEmotionDisplay();
+        document.getElementById('study-time').value = 0;
+        document.getElementById('diary-content').value = "";
+        document.getElementById('self-hate').value = "";
+        removePhoto({stopPropagation:()=>{}});
+      }
+    }).withFailureHandler(err => {
+      hideLoading();
+      showNotification('データ読み込みエラー');
+    }).getDiaryData(y, m, d);
+  }
+
+  function preSaveCheck() {
+    const y = recordDate.getFullYear();
+    const m = ("0"+(recordDate.getMonth()+1)).slice(-2);
+    const d = ("0"+recordDate.getDate()).slice(-2);
+
+    showLoading('既存データを確認中...');
+    google.script.run.withSuccessHandler(exists => {
+      hideLoading();
+      if(exists) {
+        showDialog('上書き確認', 'この日の記録は既に存在します。上書きしますか?', () => {
+          doSave(y, m, d);
+        });
+      } else {
+        doSave(y, m, d);
+      }
+    }).withFailureHandler(err => {
+      hideLoading();
+      doSave(y, m, d);
+    }).checkDiaryExists(y, m, d);
+  }
+
+  function doSave(y, m, d) {
+    showLoading('データを保存中...');
+    
+    let baseTime = parseInt(document.getElementById('study-time').value) || 0;
+    let addTime = parseInt(document.getElementById('study-add').value) || 0;
+    let totalTime = baseTime + addTime;
+    
+    const photoImg = document.getElementById('photo-preview-img');
+    const hasPhoto = photoImg.style.display === 'block';
+    
+    const now = new Date();
+    const timeStr = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2);
+    
+    const data = {
+      year: y, 
+      month: m, 
+      day: d,
+      time: timeStr,
+      emotion: parseInt(document.getElementById('emotion-input').value),
+      studyTime: totalTime,
+      content: document.getElementById('diary-content').value,
+      hateMyself: document.getElementById('self-hate').value,
+      photo: hasPhoto,
+      ver: 1.1
+    };
+
+    const imageBase64 = hasPhoto ? photoImg.src : null;
+
+    google.script.run.withSuccessHandler(() => {
+      hideLoading();
+      showNotification('保存しました');
+      document.getElementById('study-time').value = totalTime;
+      document.getElementById('study-add').value = "";
+      
+      if(Math.random() < 0.15) {
+        setTimeout(() => showRandomDiary(), 500);
+      }
+      fetchStartupData(); 
+
+    }).withFailureHandler(err => {
+      hideLoading();
+      showNotification('保存エラー');
+    }).saveDiary(data, imageBase64);
+  }
+
+  function fetchStartupData() {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = ("0"+(today.getMonth()+1)).slice(-2);
+    const d = ("0"+today.getDate()).slice(-2);
+    
+    google.script.run.withSuccessHandler(streakData => {
+      document.getElementById('streak-count').innerText = streakData.current;
+      document.getElementById('max-streak-count').innerText = streakData.max;
+      
+      const currentEl = document.getElementById('streak-count');
+      if (streakData.isRecordBreaking) {
+        currentEl.classList.add('record-breaking');
+      } else {
+        currentEl.classList.remove('record-breaking');
+      }
+    }).withFailureHandler(err => {
+      document.getElementById('streak-count').innerText = '0';
+      document.getElementById('max-streak-count').innerText = '0';
+    }).calculateStreakData(y, m, d);
+  }
+
+  function initYearMonthSelectors() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
+    const studyYearSelect = document.getElementById('study-year-select');
+    const studyMonthSelect = document.getElementById('study-month-select');
+    const historyYearSelect = document.getElementById('history-year-select');
+    const historyMonthSelect = document.getElementById('history-month-select');
+    
+    for (let y = currentYear; y >= currentYear - 10; y--) {
+      const opt1 = document.createElement('option');
+      opt1.value = y;
+      opt1.innerText = y + '年';
+      studyYearSelect.appendChild(opt1);
+      
+      const opt2 = document.createElement('option');
+      opt2.value = y;
+      opt2.innerText = y + '年';
+      historyYearSelect.appendChild(opt2);
+    }
+    
+    for (let m = 1; m <= 12; m++) {
+      const mStr = ("0" + m).slice(-2);
+      const opt1 = document.createElement('option');
+      opt1.value = mStr;
+      opt1.innerText = m + '月';
+      studyMonthSelect.appendChild(opt1);
+      
+      const opt2 = document.createElement('option');
+      opt2.value = mStr;
+      opt2.innerText = m + '月';
+      historyMonthSelect.appendChild(opt2);
+    }
+    
+    studyYearSelect.value = currentYear;
+    studyMonthSelect.value = ("0" + currentMonth).slice(-2);
+    historyYearSelect.value = currentYear;
+    historyMonthSelect.value = ("0" + currentMonth).slice(-2);
+    
+    currentStudyYear = currentYear;
+    currentStudyMonth = ("0" + currentMonth).slice(-2);
+    currentHistoryYear = currentYear;
+    currentHistoryMonth = ("0" + currentMonth).slice(-2);
+  }
+
+  function loadStudyData() {
+    showLoading('学習データを読み込み中...');
+    
+    currentStudyYear = document.getElementById('study-year-select').value;
+    currentStudyMonth = document.getElementById('study-month-select').value;
+    
+    if (currentChartMode === 'daily') {
+      google.script.run.withSuccessHandler(res => {
+        hideLoading();
+        renderPieChart(res.totalStudyTime, res.goal);
+        renderDailyBarChart(res.dailyData, currentStudyYear, currentStudyMonth);
+      }).withFailureHandler(err => {
+        hideLoading();
+        showNotification('データ読み込みエラー');
+      }).getMonthStudyData(currentStudyYear, currentStudyMonth);
+    } else {
+      google.script.run.withSuccessHandler(res => {
+        hideLoading();
+        let yearTotal = 0;
+        for (let m in res.monthlyData) {
+          yearTotal += res.monthlyData[m];
+        }
+        
+        google.script.run.withSuccessHandler(yearGoal => {
+          renderPieChart(yearTotal, yearGoal);
+          renderMonthlyBarChart(res.monthlyData, currentStudyYear);
+        }).withFailureHandler(err => {
+          renderPieChart(yearTotal, 0);
+          renderMonthlyBarChart(res.monthlyData, currentStudyYear);
+        }).getMonthGoal(currentStudyYear, currentStudyMonth);
+        
+      }).withFailureHandler(err => {
+        hideLoading();
+        showNotification('データ読み込みエラー');
+      }).getYearStudyData(currentStudyYear);
+    }
+  }
+
+  function renderPieChart(current, goal) {
+    currentGoal = goal;
+    document.getElementById('current-val').innerText = current;
+    document.getElementById('goal-val').innerText = goal;
+    
+    const percent = goal > 0 ? Math.round((current / goal) * 100) : 0;
+    document.getElementById('goal-percent').innerText = percent + "%";
+
+    const ctx = document.getElementById('goalChart').getContext('2d');
+    if(chartInstances.pie) chartInstances.pie.destroy();
+    
+    chartInstances.pie = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['実績', '残り'],
+        datasets: [{
+          data: [current, Math.max(0, goal - current)],
+          backgroundColor: ['#7b5cff', '#333'],
+          borderWidth: 0
+        }]
+      },
+      options: { cutout: '80%', plugins: { legend: { display: false } } }
+    });
+  }
+
+  function renderDailyBarChart(dailyData, y, m) {
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const labels = [];
+    const data = [];
+    let sum = 0;
+    
+    for(let i=1; i<=daysInMonth; i++) {
+      labels.push(i);
+      const val = dailyData[i] || 0;
+      data.push(val);
+      sum += val;
+    }
+    const avg = sum / daysInMonth;
+
+    const ctx = document.getElementById('studyBarChart').getContext('2d');
+    if(chartInstances.bar) chartInstances.bar.destroy();
+
+    chartInstances.bar = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: '学習時間',
+            data: data,
+            backgroundColor: '#7b5cff',
+            borderRadius: 3
+          },
+          {
+            type: 'line',
+            label: '平均',
+            data: Array(daysInMonth).fill(avg),
+            borderColor: '#ff4d4d',
+            borderWidth: 1,
+            pointRadius: 0
+          }
+        ]
+      },
+      options: {
+        scales: {
+          x: { grid: { color: '#333' } },
+          y: { grid: { color: '#333' } }
+        },
+        plugins: {
+          tooltip: {
+             callbacks: {
+               label: function(context) { return context.raw + ' 分'; }
+             }
+          }
+        }
+      }
+    });
+  }
+
+  function renderMonthlyBarChart(monthlyData, year) {
+    const labels = Array.from({length:12}, (_, i) => i + 1);
+    const data = labels.map(m => monthlyData[m] || 0);
+    
+    const ctx = document.getElementById('studyBarChart').getContext('2d');
+    if(chartInstances.bar) chartInstances.bar.destroy();
+    
+    chartInstances.bar = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: '月別学習時間',
+          data: data,
+          backgroundColor: '#7b5cff',
+          borderRadius: 3
+        }]
+      },
+      options: { 
+        scales: { 
+          x: { grid: { color:'#333'}}, 
+          y: { grid: { color:'#333'}}
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(context) { return context.raw + ' 分'; }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function switchChart(type) {
+    currentChartMode = type;
+    
+    document.getElementById('btn-chart-daily').className = type === 'daily' ? 'mini-btn active' : 'mini-btn secondary';
+    document.getElementById('btn-chart-monthly').className = type === 'monthly' ? 'mini-btn active' : 'mini-btn secondary';
+    
+    loadStudyData();
+  }
+
+  function loadHistoryData() {
+    showLoading('履歴データを読み込み中...');
+    
+    currentHistoryYear = document.getElementById('history-year-select').value;
+    currentHistoryMonth = document.getElementById('history-month-select').value;
+    
+    google.script.run.withSuccessHandler(list => {
+      hideLoading();
+      currentHistory = list.filter(item => item && item.day && item.content !== undefined);
+      setHistoryMode('list');
+    }).withFailureHandler(err => {
+      hideLoading();
+      currentHistory = [];
+      setHistoryMode('list');
+    }).getHistoryList(currentHistoryYear, currentHistoryMonth);
+  }
+
+  function changeHistoryMonth(direction) {
+    let year = parseInt(currentHistoryYear);
+    let month = parseInt(currentHistoryMonth);
+    
+    month += direction;
+    
+    if (month > 12) {
+      month = 1;
+      year++;
+    } else if (month < 1) {
+      month = 12;
+      year--;
+    }
+    
+    currentHistoryYear = year;
+    currentHistoryMonth = ("0" + month).slice(-2);
+    
+    document.getElementById('history-year-select').value = year;
+    document.getElementById('history-month-select').value = ("0" + month).slice(-2);
+    
+    loadHistoryData();
+  }
+
+  function setHistoryMode(mode) {
+    const btns = {
+      'list': 'hist-btn-list',
+      'calendar': 'hist-btn-calendar',
+      'emotion': 'hist-btn-emotion',
+      'photo': 'hist-btn-photo'
+    };
+    
+    Object.values(btns).forEach(id => {
+      const btn = document.getElementById(id);
+      btn.classList.remove('active');
+    });
+    document.getElementById(btns[mode]).classList.add('active');
+
+    const sortContainer = document.getElementById('photo-sort-container');
+    if (mode === 'photo') {
+      sortContainer.style.display = 'flex';
+    } else {
+      sortContainer.style.display = 'none';
+    }
+
+    const container = document.getElementById('history-view-container');
+    container.innerHTML = '';
+    
+    if (mode === 'list') {
+      if (currentHistory.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#666;">データがありません</p>';
+        return;
+      }
+      
+      currentHistory.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'history-list-item';
+        
+        const contentPreview = item.content ? item.content.substring(0, 30) + (item.content.length > 30 ? '...' : '') : '(本文なし)';
+        
+        div.innerHTML = `
+          <div>
+            <div class="history-meta">${item.day}日<span class="history-weekday">(${item.weekday})</span></div>
+            <div class="history-preview">${contentPreview}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:0.75rem; color:#666;">${item.updateDay}日 ${item.time}</div>
+            <div style="margin-top:3px;">${item.hasPhoto ? '📷' : ''}</div>
+          </div>
+        `;
+        div.onclick = () => openDetail(item);
+        container.appendChild(div);
+      });
+    } else if (mode === 'calendar') {
+      const grid = document.createElement('div');
+      grid.className = 'calendar-grid';
+      for(let i=1; i<=31; i++) {
+        const item = currentHistory.find(h => parseInt(h.day) === i);
+        const cell = document.createElement('div');
+        cell.className = 'cal-cell';
+        cell.innerText = i;
+        if(item) {
+          cell.classList.add('has-data');
+          const opacity = Math.min(1, Math.max(0.2, item.studyTime / 180));
+          cell.style.backgroundColor = `rgba(123, 92, 255, ${opacity})`;
+          if(item.hasPhoto) {
+            const dot = document.createElement('div');
+            dot.className = 'cal-dot';
+            cell.appendChild(dot);
+          }
+          cell.onclick = () => openDetail(item);
+        }
+        grid.appendChild(cell);
+      }
+      container.appendChild(grid);
+    } else if (mode === 'emotion') {
+      if (currentHistory.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#666;">データがありません</p>';
+        return;
+      }
+      
+      const canvas = document.createElement('canvas');
+      container.appendChild(canvas);
+      const sorted = [...currentHistory].sort((a,b) => parseInt(a.day) - parseInt(b.day));
+      
+      new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: sorted.map(i => i.day + '日'),
+          datasets: [{
+            label: '気分',
+            data: sorted.map(i => i.emotion),
+            borderColor: '#7b5cff',
+            backgroundColor: 'rgba(123, 92, 255, 0.1)',
+            tension: 0.2,
+            fill: true
+          }]
+        },
+        options: {
+          scales: { 
+            y: { min: 1, max: 5, grid: {color:'#333'} }, 
+            x: { grid: {color:'#333'} } 
+          },
+          onClick: (e, els) => {
+            if(els.length > 0) {
+              const idx = els[0].index;
+              openDetail(sorted[idx]);
+            }
+          }
+        }
+      });
+    } else if (mode === 'photo') {
+      renderPhotoMode();
+    }
+  }
+
+  function setPhotoSort(sortType) {
+    currentPhotoSort = sortType;
+    
+    document.getElementById('sort-newest').className = sortType === 'newest' ? 'photo-sort-btn secondary active' : 'photo-sort-btn secondary';
+    document.getElementById('sort-oldest').className = sortType === 'oldest' ? 'photo-sort-btn secondary active' : 'photo-sort-btn secondary';
+    document.getElementById('sort-random').className = sortType === 'random' ? 'photo-sort-btn secondary active' : 'photo-sort-btn secondary';
+    
+    renderPhotoMode();
+  }
+
+  function renderPhotoMode() {
+    const container = document.getElementById('history-view-container');
+    container.innerHTML = '';
+    
+    let photoItems = currentHistory.filter(h => h.hasPhoto);
+    
+    if (photoItems.length === 0) {
+      container.innerHTML = '<p style="text-align:center; color:#666;">写真データがありません</p>';
       return;
     }
     
-    // 以下、既存ロジックを維持
-    const target = list[Math.floor(Math.random() * list.length)];
-    const dateParts = target.name.split("-");
-    google.script.run.withSuccessHandler((data) => {
-      if (!data) return;
-      const box = document.getElementById("memoryBox");
-      box.innerHTML = `<div style="font-size:0.7rem; color:var(--primary); margin-bottom:8px;">PAST_LOG: ${target.name}</div>${data.content.substring(0, 100)}...`;
-      box.style.display = "block";
-      setTimeout(() => { box.style.display = "none"; }, 8000);
-    }).getDiaryContent(dateParts[0], dateParts[1], target.name);
-  }).getDiaryList(now.getFullYear(), now.getMonth() + 1);
-}
-
-function openMonthlyReview() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const lastDay = new Date(year, month, 0).getDate();
-  
-  // 期間判定：末日の7日前（24日頃）から末日まで
-  if (now.getDate() < (lastDay - 6)) {
-    showAlert(`月末の振り返りは${lastDay - 6}日から可能です。`, "info");
-    return;
-  }
-
-  // 既存の振り返りデータを取得してロード
-  google.script.run.withSuccessHandler((existingData) => {
-    const textarea = document.getElementById("monthlySummary");
-    if (existingData && existingData.content) {
-      textarea.value = existingData.content;
-      showAlert("前回の保存内容を読み込みました。上書きする場合は編集して保存してください。", "info");
-    } else {
-      textarea.value = "";
-    }
-    document.getElementById("monthlyReviewModal").style.display = "flex";
-  }).getGoalFromSheet(`review_${year}_${month}`); 
-}
-
-/**
- * 年間振り返りを開く（12月15日〜31日のみ）
- */
-function openYearlyReview() {
-  const now = new Date();
-  const year = now.getFullYear();
-  
-  // 期間判定：12月15日から12月31日まで
-  if (now.getMonth() !== 11 || now.getDate() < 15) {
-    showAlert("年間の振り返りは12月15日から可能です。", "info");
-    return;
-  }
-
-  google.script.run.withSuccessHandler((existingData) => {
-    // 年間振り返り用のモーダルを表示（月末用と共通、または新規作成）
-    const modal = document.getElementById("monthlyReviewModal");
-    const title = modal.querySelector("h3");
-    const textarea = document.getElementById("monthlySummary");
-    
-    title.textContent = `${year}年 年間総括`;
-    if (existingData && existingData.content) {
-      textarea.value = existingData.content;
-      showAlert("前回の年間総括を読み込みました。", "info");
-    } else {
-      textarea.value = "";
+    if (currentPhotoSort === 'newest') {
+      photoItems.sort((a, b) => parseInt(b.day) - parseInt(a.day));
+    } else if (currentPhotoSort === 'oldest') {
+      photoItems.sort((a, b) => parseInt(a.day) - parseInt(b.day));
+    } else if (currentPhotoSort === 'random') {
+      photoItems = photoItems.sort(() => Math.random() - 0.5);
     }
     
-    // 保存ボタンの挙動を年間用に一時的に変更
-    const saveBtn = modal.querySelector("button[onclick^='saveMonthlyReview']");
-    saveBtn.setAttribute("onclick", `saveReviewData('yearly_${year}')`);
+    const grid = document.createElement('div');
+    grid.className = 'photo-grid';
     
-    modal.style.display = "flex";
-  }).getGoalFromSheet(`yearly_review_${year}`);
-}
-
-function saveMonthlyReview() {
-  const summary = document.getElementById("monthlySummary").value;
-  if(!summary) return;
-  document.getElementById("diary").value = `【今月の総括】\n${summary}\n\n---\n${document.getElementById("diary").value}`;
-  document.getElementById("monthlyReviewModal").style.display = "none";
-  showTab('edit');
-  showAlert("日記欄に総括を挿入しました。", "info");
-}
-
-function openSettings() {
-  const modal = document.getElementById("settingsModal");
-  modal.style.display = "flex";
-  
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const todayDate = now.getDate();
-
-  google.script.run.withSuccessHandler((stats) => {
-    google.script.run.withSuccessHandler((goalData) => {
-      const goalTime = (goalData && goalData.content) ? parseInt(goalData.content) : 0;
-      const currentMonthData = (stats && stats.monthly) ? stats.monthly.find(m => m.month === month) : null;
-      const accumulatedTime = currentMonthData ? currentMonthData.time : 0;
+    photoItems.forEach(item => {
+      const img = document.createElement('img');
+      img.className = 'grid-photo';
+      img.src = '';
+      img.style.background = 'rgba(255,255,255,0.05)';
       
-      const lastDay = new Date(year, month, 0).getDate();
-      const remainingDays = lastDay - todayDate + 1;
-      
-      let dailyEst = 0;
-      if (goalTime > accumulatedTime) {
-        dailyEst = Math.ceil((goalTime - accumulatedTime) / remainingDays);
-      }
-
-      document.getElementById("lastWeekTotal").textContent = `今月の累計: ${accumulatedTime} 分 / 目標: ${goalTime} 分`;
-      document.getElementById("dailyGoalEst").textContent = `残り${remainingDays}日の目安: ${dailyEst} 分 / 日`;
-      document.getElementById("goalTimeInput").value = goalTime;
-    }).getGoalFromSheet(`goal_time_${year}_${month}`);
-  }).getDetailedStudyStats(year, month);
-}
-
-function closeSettings() { document.getElementById("settingsModal").style.display = "none"; }
-function saveGoal() {
-  localStorage.setItem(`goal_${new Date().getFullYear()}_${new Date().getMonth() + 1}`, document.getElementById("goalTimeInput").value);
-  closeSettings(); refreshStats();
-}
-function saveGeneralGoal() {
-  localStorage.setItem(`goal_text_${new Date().getFullYear()}_${new Date().getMonth() + 1}`, document.getElementById("goalTextPrompt").value);
-  updateGoalDisplay(); closeSettings();
-}
-function updateGoalDisplay() {
-  const saved = localStorage.getItem(`goal_text_${new Date().getFullYear()}_${new Date().getMonth() + 1}`);
-  document.getElementById("goalText").textContent = saved || "未設定 (⚙️より設定)";
-}
-function calcDailyEst(val) {
-  const days = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-  document.getElementById("dailyGoalEst").textContent = `1日あたり目安: ${val ? Math.round(val / days) : 0}分`;
-}
-function fetchLastWeekStats() {
-  google.script.run.withSuccessHandler(res => {
-    if(!res) return;
-    const total = res.daily.slice(-7).reduce((a, b) => a + (b.time || 0), 0);
-    document.getElementById("lastWeekTotal").textContent = `先週: ${total}分`;
-  }).getDetailedStudyStats(new Date().getFullYear(), new Date().getMonth() + 1);
-}
-
-function handleImage(input) {
-  if (input.files && input.files[0]) {
-    const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        const maxSide = 1024; // リサイズの上限
-        
-        if (width > maxSide || height > maxSide) {
-          if (width > height) {
-            height *= maxSide / width;
-            width = maxSide;
-          } else {
-            width *= maxSide / height;
-            height = maxSide;
-          }
+      google.script.run.withSuccessHandler(base64 => {
+        if (base64) {
+          img.src = base64;
         }
-        
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // 圧縮されたBase64データを取得
-        const resizedData = canvas.toDataURL('image/jpeg', 0.8);
-        document.getElementById('imagePreview').src = resizedData;
-        document.getElementById('imagePreviewContainer').style.display = 'block';
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
-}
-
-function autoLoadEntry() {
-  const dateEl = document.getElementById("date");
-  if (!dateEl || !dateEl.value) return;
-  const dateVal = dateEl.value;
-  const dateParts = dateVal.split("-");
-
-  // 年間目標の取得
-  google.script.run.withSuccessHandler((goal) => {
-    const display = document.getElementById("yearlyGoalText");
-    if (!display) return;
-    if (goal && goal.content) {
-      display.innerHTML = `<span style="color:var(--primary);">【2025年目標】</span> ${goal.content}`;
-      display.classList.remove("goal-warning");
-    } else {
-      display.innerHTML = `<span class="goal-warning">【重要】年間目標が未設定です。設定から優先的に入力してください。</span>`;
-      display.classList.add("goal-warning");
-    }
-  }).getYearlyGoal();
-
-  // 既存の日記読み込みロジック（Code.gs側の既存関数を呼び出し）
-  google.script.run.withSuccessHandler((data) => {
-    const diary = document.getElementById("diary");
-    if (!diary) return;
-    
-    if (data) {
-      diary.value = data.content || "";
-      document.getElementById("emotion").value = data.emotion || "normal";
-      document.getElementById("studyTime").value = data.studyTime || 0;
-      if (data.image) {
-        document.getElementById('imagePreview').src = data.image;
-        document.getElementById('imagePreviewContainer').style.display = 'block';
-      } else {
-        document.getElementById('imagePreviewContainer').style.display = 'none';
-      }
-    } else {
-      diary.value = "";
-      document.getElementById("emotion").value = "normal";
-      document.getElementById("studyTime").value = 0;
-      document.getElementById('imagePreviewContainer').style.display = 'none';
-    }
-  }).getDiaryContent(dateParts[0], parseInt(dateParts[1]), dateVal);
-}
-
-function calculateStreak() {
-  google.script.run.withSuccessHandler(data => {
-    if(!data || data.length === 0) { document.getElementById("streakCount").textContent = "0"; return; }
-    const sorted = data.map(d => d.name).sort().reverse();
-    const today = new Date(); today.setHours(0,0,0,0);
-    let count = 0;
-    let last = new Date(sorted[0]); last.setHours(0,0,0,0);
-    if ((today - last) / 86400000 > 1) { document.getElementById("streakCount").textContent = "0"; return; }
-    for(let i=0; i<sorted.length; i++){
-      const d = new Date(sorted[i]); d.setHours(0,0,0,0);
-      if(i===0) count=1; else {
-        const prev = new Date(sorted[i-1]); prev.setHours(0,0,0,0);
-        if((prev - d)/86400000 === 1) count++; else break;
-      }
-    }
-    document.getElementById("streakCount").textContent = count.toString();
-  }).getDiaryList(new Date().getFullYear(), new Date().getMonth()+1);
-}
-
-function loadList() {
-  const year = document.getElementById("viewYear").value;
-  const month = document.getElementById("viewMonth").value;
-  const diaryList = document.getElementById("diaryList");
-  diaryList.innerHTML = "";
-
-  // 履歴の冒頭に目標と振り返りを表示する
-  google.script.run.withSuccessHandler((goal) => {
-    google.script.run.withSuccessHandler((review) => {
-      const infoCard = document.createElement("div");
-      infoCard.className = "card";
-      infoCard.style = "border-left: 4px solid var(--primary); background: rgba(187,134,252,0.05); margin-bottom: 20px;";
-      infoCard.innerHTML = `
-        <div style="font-size: 0.8rem; font-weight: bold; color: var(--primary);">【${month}月の目標】</div>
-        <div style="margin-bottom: 10px;">${goal ? goal.content : "未設定"}</div>
-        <div style="font-size: 0.8rem; font-weight: bold; color: var(--primary);">【${month}月の振り返り】</div>
-        <div>${review ? review.content : "まだ記入されていません"}</div>
-      `;
-      diaryList.prepend(infoCard);
-    }).getGoalFromSheet(`review_${year}_${month}`);
-  }).getGoalFromSheet(`goal_text_${year}_${month}`);
-
-  // 既存のリスト読み込み処理...
-  google.script.run.withSuccessHandler((list) => {
-    // ...
-  }).getDiaryList(year, month);
-}
-
-function renderList(data) {
-  const list = document.getElementById("diaryList");
-  list.style.display = "block"; document.getElementById("calendarView").style.display = "none";
-  list.innerHTML = data.length ? "" : "<div style='text-align:center;padding:40px;opacity:0.3;'>No Records</div>";
-  data.forEach(d => {
-    const div = document.createElement("div"); 
-    div.style = "background:var(--surface); padding:15px; border-radius:15px; margin-bottom:12px; border-left:4px solid var(--primary); cursor:pointer;";
-    div.innerHTML = `<strong>${d.name?.toString() || ''}</strong> <span style="font-size:0.75rem; opacity:0.6;">${d.emotion?.toString() || ''}</span><br><small style="opacity:0.7;">${d.preview?.toString() || ''}...</small>`;
-    div.onclick = () => openViewer(d.name);
-    list.appendChild(div);
-  });
-}
-
-function renderCalendar(data, year, month) {
-  const cal = document.getElementById("calendarView");
-  cal.style.display = "grid"; document.getElementById("diaryList").style.display = "none";
-  cal.innerHTML = "";
-  const days = new Date(year, month, 0).getDate();
-  for(let d=1; d<=days; d++){
-    const ds = `${year}-${month.toString().padStart(2,'0')}-${d.toString().padStart(2,'0')}`;
-    const item = data.find(x => x.name === ds);
-    const div = document.createElement("div");
-    div.className = "cal-day" + (item ? " has-data" : "");
-    div.textContent = d;
-    if(item) div.onclick = () => openViewer(ds);
-    cal.appendChild(div);
-  }
-}
-
-function toggleViewMode() {
-  viewMode = viewMode === 'list' ? 'calendar' : 'list';
-  document.getElementById("viewModeBtn").textContent = viewMode === 'list' ? 'カレンダー' : 'リスト';
-  loadList();
-}
-
-function openViewer(name) {
-  toggleLoader(true, 'read', 0, "READING...");
-  const y = document.getElementById("viewYear").value;
-  const m = document.getElementById("viewMonth").value;
-  google.script.run.withSuccessHandler(json => {
-    toggleLoader(false);
-    if(!json) return;
-    document.getElementById("viewerCard").style.display = "block";
-    document.getElementById("viewMeta").textContent = `${json.date} / ${json.emotion} / ${json.studyTime}min`;
-    document.getElementById("viewBody").textContent = json.content;
-    const imgBox = document.getElementById("viewImageContainer");
-    if(json.image) { imgBox.style.display="block"; document.getElementById("viewImage").src=json.image; } else imgBox.style.display="none";
-    document.getElementById("deleteBtn").onclick = () => showAlert("削除しますか？", "danger", () => {
-      toggleLoader(true, 'read', 0, "DELETING...");
-      google.script.run.withSuccessHandler(() => { toggleLoader(false); document.getElementById("viewerCard").style.display="none"; loadList(); }).deleteDiary(y, m, name);
+      }).withFailureHandler(err => {
+        // Fail silently
+      }).getImageById(item.imageId);
+      
+      img.onclick = () => openDetail(item);
+      grid.appendChild(img);
     });
-    window.scrollTo({top: document.getElementById("viewerCard").offsetTop - 20, behavior: 'smooth'});
-  }).getDiaryContent(y, m, name);
-}
-
-function showTooltip(e, text) {
-  const tt = document.getElementById("chartTooltip");
-  tt.textContent = text; tt.style.opacity = 1;
-  tt.style.left = (e.clientX + 10) + "px"; tt.style.top = (e.clientY - 30) + "px";
-}
-function hideTooltip() { document.getElementById("chartTooltip").style.opacity = 0; }
-
-function showAlert(msg, type, onConfirm) {
-  const modal = document.getElementById("customAlert"); const btns = document.getElementById("alertBtns");
-  document.getElementById("alertMsg").textContent = msg; btns.innerHTML = "";
-  if (type === 'info') {
-    const b = document.createElement("button"); b.className="btn"; b.style.width="100px"; b.textContent="OK"; b.onclick=()=>modal.style.display="none";
-    btns.appendChild(b);
-  } else {
-    const b1 = document.createElement("button"); b1.className="btn"; b1.style.background="#888"; b1.textContent="キャンセル"; b1.onclick=()=>modal.style.display="none";
-    const b2 = document.createElement("button"); b2.className="btn"; b2.style.background = (type === 'danger' ? '#cf6679' : 'var(--primary)'); b2.textContent = "実行"; b2.onclick=()=>{ modal.style.display="none"; if(onConfirm) onConfirm(); };
-    btns.appendChild(b1); btns.appendChild(b2);
-  }
-  modal.style.display = "flex";
-}
-
-function checkOverwrite() {
-  const dateVal = document.getElementById("date").value;
-  if (!dateVal) return;
-
-  // 追加：日付制限ロジック
-  const targetDate = new Date(dateVal);
-  targetDate.setHours(0, 0, 0, 0);
-  
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  yesterday.setHours(0, 0, 0, 0);
-
-  if (targetDate.getTime() !== today.getTime() && targetDate.getTime() !== yesterday.getTime()) {
-    showAlert("制限：記録の作成・編集は「今日」または「昨日」の日付のみ可能です。", "info");
-    return;
+    container.appendChild(grid);
   }
 
-  // 以下、既存の重複確認ロジックを維持
-  const dateParts = dateVal.split("-");
-  google.script.run.withSuccessHandler((exists) => {
-    if (exists) {
-      showAlert("既にデータが存在します。上書きしますか？", "confirm", () => {
-        executeSave();
-      });
-    } else {
-      executeSave();
-    }
-  }).getDiaryContent(dateParts[0], parseInt(dateParts[1]), dateVal);
-}
-
-/**
- * 年間目標を保存する関数
- */
-function saveYearlyGoal() {
-  const content = document.getElementById("goalYearlyPrompt").value;
-  if (!content) {
-    showAlert("目標を入力してください。", "info");
-    return;
+  function loadMemoData() {
+    showLoading('メモデータを読み込み中...');
+    google.script.run.withSuccessHandler(data => {
+      hideLoading();
+      memoData = data;
+      renderMemo();
+    }).withFailureHandler(err => {
+      hideLoading();
+      memoData = { "1": "", "2": "", "3": "", "4": "", "5": "" };
+      renderMemo();
+    }).getMemoData();
   }
-  
-  toggleLoader(true, 'write', content.length, "年間目標を保存中...");
-  
-  google.script.run.withSuccessHandler((res) => {
-    toggleLoader(false);
-    showAlert("年間目標を更新しました。表示を更新します。", "info", () => {
-      // 表示を即時反映させるためにautoLoadEntryを呼ぶか、リロード
-      autoLoadEntry(); 
+
+  function switchMemo(idx) {
+    currentMemoIdx = idx;
+    document.querySelectorAll('.memo-tab').forEach((el, i) => {
+      if(i+1 === idx) el.classList.add('active');
+      else el.classList.remove('active');
     });
-  }).saveGoalToSheet('yearly', content, false);
-}
+    renderMemo();
+  }
 
-function saveReviewData(type) {
-  const content = document.getElementById("monthlySummary").value;
-  if (!content) return;
-
-  showAlert("以前の記録がある場合、上書きされます。よろしいですか？", "confirm", () => {
-    toggleLoader(true, 'write', content.length, "振り返りを保存中...");
-    google.script.run.withSuccessHandler(() => {
-      toggleLoader(false);
-      showAlert("振り返りを保存しました。", "info");
-      document.getElementById("monthlyReviewModal").style.display = "none";
-    }).saveGoalToSheet(type, content, true); // lockedをtrueにして保存
-  });
-}
-
-// 既存の window.onload や document.addEventListener をこれに置き換えてください
-window.addEventListener('load', () => {
-  // bodyが存在することを確認（絶対条件）
-  if (!document.body) return;
-
-  const now = new Date();
-  const dateInput = document.getElementById("date");
-  
-  if (dateInput) {
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    dateInput.value = `${y}-${m}-${d}`;
-    
-    // ドライブへのアクセス承認を考慮し、少し待ってから実行
+  function renderMemo() {
+    showLoading('メモを読み込み中...');
+    const area = document.getElementById('memo-area');
+    area.value = memoData[currentMemoIdx] || "";
+    area.style.opacity = 0.5;
     setTimeout(() => {
-      if (typeof autoLoadEntry === 'function') autoLoadEntry();
-    }, 500);
+      area.style.opacity = 1;
+      hideLoading();
+    }, 150);
   }
 
-  if (typeof updateMoonAndMode === 'function') updateMoonAndMode();
-
-  // 年間振り返りボタン表示
-  const yr = document.getElementById("yearlyReviewSection");
-  if (yr && now.getMonth() === 11 && now.getDate() >= 15) {
-    yr.style.display = "block";
+  let memoTimeout;
+  function debounceMemoSave() {
+    document.getElementById('memo-status').innerText = "入力中...";
+    clearTimeout(memoTimeout);
+    memoTimeout = setTimeout(() => {
+      memoData[currentMemoIdx] = document.getElementById('memo-area').value;
+      google.script.run.withSuccessHandler(() => {
+        document.getElementById('memo-status').innerText = "保存完了";
+        setTimeout(() => {
+          document.getElementById('memo-status').innerText = "";
+        }, 2000);
+      }).withFailureHandler(err => {
+        document.getElementById('memo-status').innerText = "保存エラー";
+      }).saveMemoData(memoData);
+    }, 1500);
   }
-});
 
-function saveYearlyGoal() {
-  const content = document.getElementById("goalYearlyPrompt").value;
-  if (!content) return;
-  
-  toggleLoader(true, 'write', content.length, "年間目標を保存中...");
-  google.script.run.withSuccessHandler(() => {
-    toggleLoader(false);
-    showAlert("年間目標を保存しました。", "info");
-    autoLoadEntry(); // 表示を更新
-  }).saveGoalToSheet('yearly', content, false);
-}
+  function openDetail(item, context = 'history') {
+    currentDetailItem = item;
+    const modal = document.getElementById('detail-modal');
+    document.getElementById('detail-date').innerText = `${item.year}/${item.month}/${item.day} (${item.weekday || ''})`;
+    document.getElementById('detail-emotion').innerText = item.emotion;
+    document.getElementById('detail-study').innerText = item.studyTime;
+    document.getElementById('detail-content').innerText = item.content || '(本文なし)';
+    
+    const deleteBtn = document.getElementById('btn-delete-diary');
+    if (context === 'random') {
+      deleteBtn.style.display = 'none';
+    } else {
+      deleteBtn.style.display = 'block';
+    }
+
+    const photoContainer = document.getElementById('detail-photo-container');
+    photoContainer.innerHTML = '';
+    
+    if (item.hasPhoto) {
+       showLoading('画像データを展開中...');
+       if (item.imageId) {
+         google.script.run.withSuccessHandler(base64 => {
+           hideLoading();
+           if (base64) {
+             const img = document.createElement('img');
+             img.src = base64;
+             img.style.maxWidth = '100%';
+             img.style.borderRadius = '8px';
+             photoContainer.appendChild(img);
+           }
+         }).withFailureHandler(err => {
+           hideLoading();
+         }).getImageById(item.imageId);
+       } else {
+         google.script.run.withSuccessHandler(res => {
+            hideLoading();
+            if(res.image) {
+               const img = document.createElement('img');
+               img.src = res.image;
+               img.style.maxWidth = '100%';
+               img.style.borderRadius = '8px';
+               photoContainer.appendChild(img);
+            }
+         }).withFailureHandler(err => {
+           hideLoading();
+         }).getDiaryData(item.year, item.month, item.day);
+       }
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  function closeDetail() {
+    document.getElementById('detail-modal').style.display = 'none';
+  }
+
+  function confirmDelete() {
+    if(!currentDetailItem) return;
+    pendingDeleteItem = currentDetailItem;
+    document.getElementById('confirm-delete-message').innerText = `${currentDetailItem.year}年${currentDetailItem.month}月${currentDetailItem.day}日のデータを完全に削除します。元に戻すことはできません。`;
+    document.getElementById('confirm-delete-modal').style.display = 'flex';
+  }
+
+  function closeConfirmDelete() {
+    document.getElementById('confirm-delete-modal').style.display = 'none';
+    pendingDeleteItem = null;
+  }
+
+  function executeDelete() {
+    if (!pendingDeleteItem) return;
+    
+    closeConfirmDelete();
+    showLoading('サーバーから削除中...');
+    
+    google.script.run.withSuccessHandler(() => {
+      hideLoading();
+      document.getElementById('detail-modal').style.display = 'none';
+      showNotification('削除完了');
+      if(currentTab === 'history') {
+        setTimeout(() => loadHistoryData(), 500);
+      }
+      pendingDeleteItem = null;
+    }).withFailureHandler(err => {
+      hideLoading();
+      showNotification('削除エラー');
+      pendingDeleteItem = null;
+    }).deleteDiary(pendingDeleteItem.year, pendingDeleteItem.month, pendingDeleteItem.day);
+  }
+
+  function showRandomDiary() {
+    showLoading('過去データを検索中...');
+    google.script.run.withSuccessHandler(res => {
+      hideLoading();
+      if(res && res.exists) {
+        const item = {
+          year: res.data.year,
+          month: res.data.month,
+          day: res.data.day,
+          emotion: res.data.emotion,
+          studyTime: res.data.studyTime,
+          content: res.data.content,
+          hasPhoto: !!res.image,
+          imageId: null
+        };
+        openDetail(item, 'random');
+        
+        if(res.image) {
+          const c = document.getElementById('detail-photo-container');
+          c.innerHTML = '';
+          const img = document.createElement('img');
+          img.src = res.image;
+          img.style.maxWidth = '100%';
+          img.style.borderRadius = '8px';
+          c.appendChild(img);
+        }
+      } else {
+        showDialog('通知', '過去の日記が見つかりませんでした', null, false);
+      }
+    }).withFailureHandler(err => {
+      hideLoading();
+      showDialog('通知', '過去の日記が見つかりませんでした', null, false);
+    }).getRandomDiaryData();
+  }
+
+  function openSettings() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = ("0" + (now.getMonth() + 1)).slice(-2);
+    
+    showLoading('設定データを読み込み中...');
+    google.script.run.withSuccessHandler(goal => {
+      hideLoading();
+      
+      if (goal > 0) {
+        document.getElementById('setting-goal').value = goal;
+        const lastDay = new Date(currentYear, now.getMonth() + 1, 0).getDate();
+        if (now.getDate() >= lastDay - 2) {
+          document.getElementById('setting-goal').disabled = false;
+        } else {
+          document.getElementById('setting-goal').disabled = true;
+        }
+      } else {
+        document.getElementById('setting-goal').disabled = false;
+        document.getElementById('setting-goal').value = "";
+      }
+      
+      google.script.run.withSuccessHandler(total => {
+        document.getElementById('prev-month-total').innerText = total;
+        const daysInMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate();
+        const isAfternoon = now.getHours() >= 12;
+        const remain = isAfternoon ? (daysInMonth - now.getDate()) : (daysInMonth - now.getDate() + 1);
+        
+        const input = document.getElementById('setting-goal');
+        input.oninput = () => {
+           const val = parseInt(input.value) || 0;
+           const currentStudy = parseInt(document.getElementById('current-val').innerText) || 0;
+           const daily = remain > 0 ? Math.round((val - currentStudy) / remain) : 0;
+           document.getElementById('daily-guideline').innerText = daily > 0 ? daily : 0;
+        };
+        
+        if (goal > 0) {
+          const currentStudy = parseInt(document.getElementById('current-val').innerText) || 0;
+          const daily = remain > 0 ? Math.round((goal - currentStudy) / remain) : 0;
+          document.getElementById('daily-guideline').innerText = daily > 0 ? daily : 0;
+        }
+      }).withFailureHandler(err => {
+        document.getElementById('prev-month-total').innerText = '0';
+      }).getLastMonthTotalTime();
+      
+      document.getElementById('settings-modal').style.display = 'flex';
+    }).withFailureHandler(err => {
+      hideLoading();
+      document.getElementById('setting-goal').disabled = false;
+      document.getElementById('setting-goal').value = "";
+      document.getElementById('settings-modal').style.display = 'flex';
+    }).getMonthGoal(currentYear, currentMonth);
+  }
+
+  function closeSettings() {
+    document.getElementById('settings-modal').style.display = 'none';
+  }
+
+  function saveSettings() {
+    const val = document.getElementById('setting-goal').value;
+    if(!val || parseInt(val) <= 0) {
+      showDialog('エラー', '有効な目標時間を入力してください', null, false);
+      return;
+    }
+    
+    showLoading('設定を保存中...');
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = ("0" + (now.getMonth() + 1)).slice(-2);
+    
+    google.script.run.withSuccessHandler(() => {
+      hideLoading();
+      closeSettings();
+      showNotification('設定を更新しました');
+      if(currentTab === 'study') {
+        setTimeout(() => loadStudyData(), 500);
+      }
+    }).withFailureHandler(err => {
+      hideLoading();
+      showNotification('保存エラー');
+    }).saveMonthGoal(year, month, val);
+  }
+
 </script>
 </body>
 </html>
