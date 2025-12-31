@@ -433,15 +433,25 @@ function saveMonthGoal(year, month, goal) {
     const mFolder = getMonthFolder(year, month);
     const fname = 'monthGoal.json';
     
+    const files = mFolder.getFilesByName(fname);
+    if (files.hasNext()) {
+      const file = files.next();
+      const existing = JSON.parse(file.getBlob().getDataAsString());
+      if (existing.setAt) {
+        return { success: false, error: 'already_set' };
+      }
+    }
+    
     const data = {
       year: year,
       month: month,
-      goal: parseInt(goal)
+      goal: parseInt(goal),
+      setAt: getJstDate().getTime()
     };
     
-    const files = mFolder.getFilesByName(fname);
-    if (files.hasNext()) {
-      files.next().setContent(JSON.stringify(data));
+    const files2 = mFolder.getFilesByName(fname);
+    if (files2.hasNext()) {
+      files2.next().setContent(JSON.stringify(data));
     } else {
       mFolder.createFile(fname, JSON.stringify(data));
     }

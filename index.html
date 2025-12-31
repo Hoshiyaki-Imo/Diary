@@ -864,19 +864,54 @@
     document.getElementById('current-val').innerText = current;
     document.getElementById('goal-val').innerText = goal;
     
-    const percent = goal > 0 ? Math.round((current / goal) * 100) : 0;
-    document.getElementById('goal-percent').innerText = percent + "%";
+    let percent = 0;
+    let displayText = '';
+    let chartColor = '#7b5cff';
+    
+    if (goal > 0) {
+      percent = Math.round((current / goal) * 100);
+      
+      if (current < goal) {
+        const remaining = goal - current;
+        displayText = `あと${remaining}分`;
+        chartColor = '#7b5cff';
+      } else {
+        displayText = '達成しました';
+        
+        const cycles = Math.floor(current / goal);
+        if (cycles === 1) {
+          chartColor = '#7b5cff';
+        } else if (cycles === 2) {
+          chartColor = '#ff6b9d';
+        } else if (cycles >= 3) {
+          chartColor = '#ffd700';
+        }
+      }
+    } else {
+      displayText = '目標未設定';
+    }
+    
+    document.getElementById('goal-percent').innerText = displayText;
 
     const ctx = document.getElementById('goalChart').getContext('2d');
     if(chartInstances.pie) chartInstances.pie.destroy();
+    
+    let displayValue = current;
+    let remainingValue = Math.max(0, goal - current);
+    
+    if (goal > 0 && current > goal) {
+      displayValue = current % goal;
+      if (displayValue === 0) displayValue = goal;
+      remainingValue = goal - displayValue;
+    }
     
     chartInstances.pie = new Chart(ctx, {
       type: 'doughnut',
       data: {
         labels: ['実績', '残り'],
         datasets: [{
-          data: [current, Math.max(0, goal - current)],
-          backgroundColor: ['#7b5cff', '#333'],
+          data: [displayValue, remainingValue],
+          backgroundColor: [chartColor, '#333'],
           borderWidth: 0
         }]
       },
@@ -1242,7 +1277,6 @@
     document.getElementById('detail-date').innerText = `${item.year}/${item.month}/${item.day} (${item.weekday || ''})`;
     document.getElementById('detail-emotion').innerText = item.emotion;
     document.getElementById('detail-study').innerText = item.studyTime;
-    document.getElementById('detail-content').innerText = item.content || '(本文なし)';
     
     const deleteBtn = document.getElementById('btn-delete-diary');
     if (context === 'random') {
@@ -1284,6 +1318,51 @@
          }).getDiaryData(item.year, item.month, item.day);
        }
     }
+    
+    google.script.run.withSuccessHandler(res => {
+      if (res.exists && res.data.hateMyself) {
+        const contentDiv = document.getElementById('detail-content');
+        contentDiv.innerHTML = '';
+        
+        const contentSection = document.createElement('div');
+        contentSection.style.marginBottom = '15px';
+        const contentLabel = document.createElement('div');
+        contentLabel.innerText = '本文:';
+        contentLabel.style.fontSize = '0.85rem';
+        contentLabel.style.color = '#999';
+        contentLabel.style.marginBottom = '5px';
+        const contentText = document.createElement('div');
+        contentText.innerText = item.content || '(本文なし)';
+        contentText.style.whiteSpace = 'pre-wrap';
+        contentText.style.background = '#333';
+        contentText.style.padding = '10px';
+        contentText.style.borderRadius = '8px';
+        contentSection.appendChild(contentLabel);
+        contentSection.appendChild(contentText);
+        
+        const hateSection = document.createElement('div');
+        const hateLabel = document.createElement('div');
+        hateLabel.innerText = '自己嫌悪:';
+        hateLabel.style.fontSize = '0.85rem';
+        hateLabel.style.color = '#999';
+        hateLabel.style.marginBottom = '5px';
+        const hateText = document.createElement('div');
+        hateText.innerText = res.data.hateMyself;
+        hateText.style.whiteSpace = 'pre-wrap';
+        hateText.style.background = '#3a2a2a';
+        hateText.style.padding = '10px';
+        hateText.style.borderRadius = '8px';
+        hateSection.appendChild(hateLabel);
+        hateSection.appendChild(hateText);
+        
+        contentDiv.appendChild(contentSection);
+        contentDiv.appendChild(hateSection);
+      } else {
+        document.getElementById('detail-content').innerText = item.content || '(本文なし)';
+      }
+    }).withFailureHandler(err => {
+      document.getElementById('detail-content').innerText = item.content || '(本文なし)';
+    }).getDiaryData(item.year, item.month, item.day);
 
     modal.style.display = 'flex';
   }
@@ -1340,17 +1419,71 @@
           hasPhoto: !!res.image,
           imageId: null
         };
-        openDetail(item, 'random');
+        
+        const modal = document.getElementById('detail-modal');
+        document.getElementById('detail-date').innerText = `${item.year}/${item.month}/${item.day}`;
+        document.getElementById('detail-emotion').innerText = item.emotion;
+        document.getElementById('detail-study').innerText = item.studyTime;
+        
+        document.getElementById('btn-delete-diary').style.display = 'none';
+        
+        const photoContainer = document.getElementById('detail-photo-container');
+        photoContainer.innerHTML = '';
         
         if(res.image) {
-          const c = document.getElementById('detail-photo-container');
-          c.innerHTML = '';
           const img = document.createElement('img');
           img.src = res.image;
           img.style.maxWidth = '100%';
           img.style.borderRadius = '8px';
-          c.appendChild(img);
+          photoContainer.appendChild(img);
         }
+        
+        const contentDiv = document.getElementById('detail-content');
+        contentDiv.innerHTML = '';
+        
+        if (res.data.hateMyself) {
+          const contentSection = document.createElement('div');
+          contentSection.style.marginBottom = '15px';
+          const contentLabel = document.createElement('div');
+          contentLabel.innerText = '本文:';
+          contentLabel.style.fontSize = '0.85rem';
+          contentLabel.style.color = '#999';
+          contentLabel.style.marginBottom = '5px';
+          const contentText = document.createElement('div');
+          contentText.innerText = res.data.content || '(本文なし)';
+          contentText.style.whiteSpace = 'pre-wrap';
+          contentText.style.background = '#333';
+          contentText.style.padding = '10px';
+          contentText.style.borderRadius = '8px';
+          contentSection.appendChild(contentLabel);
+          contentSection.appendChild(contentText);
+          
+          const hateSection = document.createElement('div');
+          const hateLabel = document.createElement('div');
+          hateLabel.innerText = '自己嫌悪:';
+          hateLabel.style.fontSize = '0.85rem';
+          hateLabel.style.color = '#999';
+          hateLabel.style.marginBottom = '5px';
+          const hateText = document.createElement('div');
+          hateText.innerText = res.data.hateMyself;
+          hateText.style.whiteSpace = 'pre-wrap';
+          hateText.style.background = '#3a2a2a';
+          hateText.style.padding = '10px';
+          hateText.style.borderRadius = '8px';
+          hateSection.appendChild(hateLabel);
+          hateSection.appendChild(hateText);
+          
+          contentDiv.appendChild(contentSection);
+          contentDiv.appendChild(hateSection);
+        } else {
+          contentDiv.innerText = res.data.content || '(本文なし)';
+          contentDiv.style.whiteSpace = 'pre-wrap';
+          contentDiv.style.background = '#333';
+          contentDiv.style.padding = '10px';
+          contentDiv.style.borderRadius = '8px';
+        }
+        
+        modal.style.display = 'flex';
       } else {
         showDialog('通知', '過去の日記が見つかりませんでした', null, false);
       }
@@ -1371,12 +1504,7 @@
       
       if (goal > 0) {
         document.getElementById('setting-goal').value = goal;
-        const lastDay = new Date(currentYear, now.getMonth() + 1, 0).getDate();
-        if (now.getDate() >= lastDay - 2) {
-          document.getElementById('setting-goal').disabled = false;
-        } else {
-          document.getElementById('setting-goal').disabled = true;
-        }
+        document.getElementById('setting-goal').disabled = true;
       } else {
         document.getElementById('setting-goal').disabled = false;
         document.getElementById('setting-goal').value = "";
@@ -1425,22 +1553,33 @@
       return;
     }
     
-    showLoading('設定を保存中...');
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = ("0" + (now.getMonth() + 1)).slice(-2);
-    
-    google.script.run.withSuccessHandler(() => {
-      hideLoading();
-      closeSettings();
-      showNotification('設定を更新しました');
-      if(currentTab === 'study') {
-        setTimeout(() => loadStudyData(), 500);
+    showDialog('設定確認', 
+      `今月の目標を${val}分に設定します。\n\n一度設定すると今月は変更できません。\n\nこの内容でよろしいですか？`, 
+      () => {
+        showLoading('設定を保存中...');
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = ("0" + (now.getMonth() + 1)).slice(-2);
+        
+        google.script.run.withSuccessHandler((result) => {
+          hideLoading();
+          if (result.success) {
+            closeSettings();
+            showNotification('設定を更新しました');
+            if(currentTab === 'study') {
+              setTimeout(() => loadStudyData(), 500);
+            }
+          } else if (result.error === 'already_set') {
+            showDialog('エラー', '今月の目標は既に設定済みです', null, false);
+          } else {
+            showNotification('保存エラー');
+          }
+        }).withFailureHandler(err => {
+          hideLoading();
+          showNotification('保存エラー');
+        }).saveMonthGoal(year, month, val);
       }
-    }).withFailureHandler(err => {
-      hideLoading();
-      showNotification('保存エラー');
-    }).saveMonthGoal(year, month, val);
+    );
   }
 
 </script>
