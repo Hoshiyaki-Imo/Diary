@@ -47,6 +47,14 @@
     .app-title { font-weight: 700; font-size: 1.2rem; letter-spacing: 0.05em; }
     .header-icons span { margin-left: 15px; cursor: pointer; font-size: 1.2rem; }
 
+    .header-icons {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+
     #main-container {
       flex: 1;
       overflow-y: auto;
@@ -117,6 +125,20 @@
       padding: 5px 10px; width: auto; border: 1px solid transparent;
     }
     .btn-icon-subtle:hover { color: var(--danger); background: rgba(255, 77, 77, 0.1); }
+    
+    .icon-btn {
+  background: none;
+  border: none;
+  color: #eee;
+  font-size: 1.2rem;
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  color: #7b5cff;
+}
+
 
     .slider-container { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
     input[type="range"] {
@@ -260,9 +282,10 @@
 <header>
   <div class="app-title">Diary</div>
   <div class="header-icons">
-    <span onclick="showRandomDiary()">💡</span>
-    <span onclick="openSettings()">⚙️</span>
-  </div>
+  <button class="icon-btn" onclick="showRandomDiary()" title="ひらめき">⬤</button>
+  <button class="icon-btn" onclick="openSettings()" title="設定">⚙</button>
+</div>
+
 </header>
 
 <div id="main-container">
@@ -331,7 +354,15 @@
       <h3>今月の目標達成度</h3>
       <div class="pie-container">
         <canvas id="goalChart"></canvas>
-        <div class="pie-center-text" id="goal-percent">0%</div>
+        <div class="pie-center-text">
+  <div id="goal-percent-large" style="font-size:1.8rem;font-weight:700;">
+    0%
+  </div>
+  <div id="goal-percent-small" style="font-size:0.85rem;color:#ccc;margin-top:6px;">
+    あと0分
+  </div>
+</div>
+
       </div>
       <div style="text-align:center; font-size:0.9rem;">
         目標: <span id="goal-val">0</span>分 / 実績: <span id="current-val">0</span>分
@@ -860,64 +891,72 @@
   }
 
   function renderPieChart(current, goal) {
-    currentGoal = goal;
-    document.getElementById('current-val').innerText = current;
-    document.getElementById('goal-val').innerText = goal;
-    
-    let percent = 0;
-    let displayText = '';
-    let chartColor = '#7b5cff';
-    
-    if (goal > 0) {
-      percent = Math.round((current / goal) * 100);
-      
-      if (current < goal) {
-        const remaining = goal - current;
-        displayText = `あと${remaining}分`;
-        chartColor = '#7b5cff';
-      } else {
-        displayText = '達成しました';
-        
-        const cycles = Math.floor(current / goal);
-        if (cycles === 1) {
-          chartColor = '#7b5cff';
-        } else if (cycles === 2) {
-          chartColor = '#ff6b9d';
-        } else if (cycles >= 3) {
-          chartColor = '#ffd700';
-        }
-      }
-    } else {
-      displayText = '目標未設定';
-    }
-    
-    document.getElementById('goal-percent').innerText = displayText;
+  currentGoal = goal;
+  document.getElementById('current-val').innerText = current;
+  document.getElementById('goal-val').innerText = goal;
 
-    const ctx = document.getElementById('goalChart').getContext('2d');
-    if(chartInstances.pie) chartInstances.pie.destroy();
-    
-    let displayValue = current;
-    let remainingValue = Math.max(0, goal - current);
-    
-    if (goal > 0 && current > goal) {
-      displayValue = current % goal;
-      if (displayValue === 0) displayValue = goal;
-      remainingValue = goal - displayValue;
+  let percent = 0;
+  let displayText = '';
+  let chartColor = '#7b5cff';
+
+  if (goal > 0) {
+    percent = Math.round((current / goal) * 100);
+
+    if (current < goal) {
+      const remaining = goal - current;
+      displayText = `あと${remaining}分`;        // ★
+      chartColor = '#7b5cff';
+    } else {
+      const extra = current - goal;
+      displayText = `延長${extra}分`;             // ★
+
+      const cycles = Math.floor(current / goal);
+      if (cycles === 1) {
+        chartColor = '#7b5cff';
+      } else if (cycles === 2) {
+        chartColor = '#ff6b9d';
+      } else if (cycles >= 3) {
+        chartColor = '#ffd700';
+      }
     }
-    
-    chartInstances.pie = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: ['実績', '残り'],
-        datasets: [{
-          data: [displayValue, remainingValue],
-          backgroundColor: [chartColor, '#333'],
-          borderWidth: 0
-        }]
-      },
-      options: { cutout: '80%', plugins: { legend: { display: false } } }
-    });
+  } else {
+    displayText = '目標未設定';
   }
+
+  // ★ 表示先を分ける
+  document.getElementById('goal-percent-large').innerText =
+    goal > 0 ? percent + '%' : '--';
+  document.getElementById('goal-percent-small').innerText = displayText;
+
+  const ctx = document.getElementById('goalChart').getContext('2d');
+  if (chartInstances.pie) chartInstances.pie.destroy();
+
+  let displayValue = current;
+  let remainingValue = Math.max(0, goal - current);
+
+  if (goal > 0 && current > goal) {
+    displayValue = current % goal;
+    if (displayValue === 0) displayValue = goal;
+    remainingValue = goal - displayValue;
+  }
+
+  chartInstances.pie = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['実績', '残り'],
+      datasets: [{
+        data: [displayValue, remainingValue],
+        backgroundColor: [chartColor, '#333'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      cutout: '80%',
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
 
   function renderDailyBarChart(dailyData, y, m) {
     const daysInMonth = new Date(y, m, 0).getDate();
